@@ -119,8 +119,7 @@ where
         &self,
         streamable_request: StreamableRequest,
     ) -> ApiChannel<Extensions, Send, Receive> {
-        let StreamableRequest { stream, extensions } = streamable_request;
-        let (sink, stream) = stream.split();
+        let (sink, stream) = streamable_request.stream.split();
 
         let pretty_printed = self.pretty_printed;
         let sender = ApiChannelSender::new(
@@ -147,6 +146,10 @@ where
             stream,
         );
 
-        ApiChannel::new(Extensions::create(extensions), sender, receiver)
+        ApiChannel::new(
+            Extensions::create(streamable_request.extensions),
+            sender,
+            receiver,
+        )
     }
 }
