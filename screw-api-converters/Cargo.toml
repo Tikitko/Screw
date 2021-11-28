@@ -1,0 +1,14 @@
+[package]
+name = "screw-api-converters"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+screw-core = { path = "../screw-core" }
+screw-api = { path = "../screw-api" }
+hyper = { version = "0.14.9", features = ["http1", "http2"] }
+serde = { version = "1.0.130", features = ["derive"] }
+serde_json = { version = "1.0.64" }
+async-trait = { version = "0.1.50" }
+futures = { version = "0.3.17" }
+derive-error = { version = "0.0.5" }

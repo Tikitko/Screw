@@ -1,0 +1,12 @@
+[package]
+name = "screw-api"
+version = "0.0.1"
+edition = "2021"
+
+[dependencies]
+screw-core = { path = "../screw-core" }
+hyper = { version = "0.14.9", features = ["http1", "http2"] }
+tokio-tungstenite = { version = "0.16.0" }
+serde = { version = "1.0.130", features = ["derive"] }
+async-trait = { version = "0.1.50" }
+futures = { version = "0.3.17" }
