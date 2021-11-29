@@ -14,4 +14,5 @@ futures = { version = "0.3.17" }
 derive-error = { version = "0.0.5" }
 
 [features]
+default = ["json"]
 json = ["serde_json"]
