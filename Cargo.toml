@@ -2,5 +2,6 @@
 members = [
     "screw-core",
     "screw-api",
-    "screw-api-converters"
+    "screw-api-converters",
+    "screw-ws"
 ]

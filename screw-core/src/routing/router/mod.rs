@@ -1,16 +1,22 @@
-mod builder;
+mod convert_handler;
 mod default_types;
-pub mod http;
+mod request_converter;
+mod response_converter;
+mod route;
 mod router;
-mod scoped_builder;
-pub mod web_socket;
+mod router_builder;
+mod scoped_router_builder;
 
-pub use builder::*;
+use convert_handler::*;
 pub use default_types::*;
+pub use request_converter::*;
+pub use response_converter::*;
+pub use route::*;
 pub use router::*;
-pub use scoped_builder::*;
+pub use router_builder::*;
+pub use scoped_router_builder::*;
 
-struct HandlersContainer {
-    web_socket: std::collections::HashMap<String, std::sync::Arc<web_socket::WebSocketHandler>>,
-    http: std::collections::HashMap<(hyper::Method, String), http::HttpHandler>,
-}
+pub type Request = hyper::Request<hyper::Body>;
+pub type Response = hyper::Response<hyper::Body>;
+
+pub type Handler = crate::DFn<Request, Response>;

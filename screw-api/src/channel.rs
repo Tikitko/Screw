@@ -2,7 +2,7 @@ use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
 use hyper::http::Extensions;
 use hyper::upgrade::Upgraded;
-use screw_core::routing::Handler;
+use screw_core::DFn;
 use screw_core::{DError, DResult};
 use serde::{Deserialize, Serialize};
 use tokio_tungstenite::tungstenite::{Error, Message};
@@ -73,7 +73,7 @@ pub struct ApiChannelSender<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    converter: Handler<Send, DResult<String>>,
+    converter: DFn<Send, DResult<String>>,
     sink: SplitSink<WebSocketStream<Upgraded>, Message>,
 }
 
@@ -82,7 +82,7 @@ where
     Send: Serialize + std::marker::Send + 'static,
 {
     pub fn new(
-        converter: Handler<Send, DResult<String>>,
+        converter: DFn<Send, DResult<String>>,
         sink: SplitSink<WebSocketStream<Upgraded>, Message>,
     ) -> Self {
         ApiChannelSender { converter, sink }
@@ -120,7 +120,7 @@ pub struct ApiChannelReceiver<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
-    converter: Handler<String, DResult<Receive>>,
+    converter: DFn<String, DResult<Receive>>,
     stream: SplitStream<WebSocketStream<Upgraded>>,
 }
 
@@ -129,7 +129,7 @@ where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
     pub fn new(
-        converter: Handler<String, DResult<Receive>>,
+        converter: DFn<String, DResult<Receive>>,
         stream: SplitStream<WebSocketStream<Upgraded>>,
     ) -> Self {
         ApiChannelReceiver { converter, stream }

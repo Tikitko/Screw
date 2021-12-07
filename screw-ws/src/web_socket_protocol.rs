@@ -1,5 +1,5 @@
 use hyper::http::{Extensions, HeaderValue};
-use hyper::{upgrade, upgrade::Upgraded};
+use hyper::{upgrade, upgrade::Upgraded, HeaderMap, Uri};
 use hyper::{Body, Request, Response, StatusCode, Version};
 use std::future::Future;
 use tokio::task;
@@ -45,7 +45,7 @@ fn get_web_socket_key_header(request: &Request<Body>) -> Option<&HeaderValue> {
     request.headers().get("Sec-WebSocket-Key")
 }
 
-fn create_upgrade_response(request: &Request<Body>) -> Result<Response<Body>, ProtocolError> {
+fn upgrade_response(request: &Request<Body>) -> Result<Response<Body>, ProtocolError> {
     if !is_get_method(&request) {
         return Err(ProtocolError::WrongHttpMethod);
     }
@@ -80,7 +80,7 @@ fn create_upgrade_response(request: &Request<Body>) -> Result<Response<Body>, Pr
     Ok(response)
 }
 
-async fn create_upgraded_stream(
+async fn upgrade_to_stream(
     request: &mut Request<Body>,
     config: Option<WebSocketConfig>,
 ) -> Result<WebSocketStream<Upgraded>, hyper::Error> {
@@ -90,7 +90,15 @@ async fn create_upgraded_stream(
     }
 }
 
-pub type UpgradeResult = Result<(WebSocketStream<Upgraded>, Extensions), hyper::Error>;
+pub type UpgradeResult = Result<
+    (
+        WebSocketStream<Upgraded>,
+        Uri,
+        HeaderMap<HeaderValue>,
+        Extensions,
+    ),
+    hyper::Error,
+>;
 
 pub fn upgrade<HFn, HFut>(
     request: Request<Body>,
@@ -101,18 +109,18 @@ where
     HFn: FnOnce(UpgradeResult) -> HFut + Send + Sync + 'static,
     HFut: Future<Output = ()> + Send + 'static,
 {
-    match create_upgrade_response(&request) {
-        Ok(upgrade_response) => {
+    match upgrade_response(&request) {
+        Ok(response) => {
             task::spawn(async move {
                 let mut request = request;
-                let upgraded_stream_result = create_upgraded_stream(&mut request, config).await;
-                let upgrade_result = upgraded_stream_result.map(|upgraded_stream| {
-                    let (request_parts, _) = request.into_parts();
-                    (upgraded_stream, request_parts.extensions)
+                let stream_result = upgrade_to_stream(&mut request, config).await;
+                let upgrade_result = stream_result.map(|stream| {
+                    let (parts, _) = request.into_parts();
+                    (stream, parts.uri, parts.headers, parts.extensions)
                 });
                 upgrade_result_handler(upgrade_result).await;
             });
-            upgrade_response
+            response
         }
         Err(_) => Response::builder()
             .status(StatusCode::BAD_REQUEST)

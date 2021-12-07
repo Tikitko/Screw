@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use derive_error::Error;
-use futures::StreamExt;
 use hyper::header::ToStrError;
 use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
@@ -10,10 +9,7 @@ use screw_api::{
     ApiRequestContent, ApiResponse, ApiResponseContentBase, ApiResponseContentFailure,
     ApiResponseContentSuccess,
 };
-use screw_core::routing::router::http::HttpConverter;
-use screw_core::routing::router::http::{Request, Response};
-use screw_core::routing::router::web_socket::StreamableRequest;
-use screw_core::routing::router::web_socket::WebSocketConverter;
+use screw_core::routing::router::{Request, RequestConverter, Response, ResponseConverter};
 use screw_core::DResult;
 use serde::{Deserialize, Serialize};
 
@@ -31,13 +27,9 @@ pub enum JsonApiRequestConvertError {
 }
 
 #[async_trait]
-impl<RqContent, RsContentSuccess, RsContentFailure>
-    HttpConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
-    for JsonApiConverter
+impl<RqContent> RequestConverter<ApiRequest<RqContent>> for JsonApiConverter
 where
     RqContent: ApiRequestContent + Send + 'static,
-    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
-    RsContentFailure: ApiResponseContentFailure + Send + 'static,
 {
     async fn convert_request(&self, request: Request) -> ApiRequest<RqContent> {
         async fn convert<Data>(
@@ -74,7 +66,15 @@ where
 
         ApiRequest::new(RqContent::create(parts, data_result.map_err(|e| e.into())))
     }
+}
 
+#[async_trait]
+impl<RsContentSuccess, RsContentFailure>
+    ResponseConverter<ApiResponse<RsContentSuccess, RsContentFailure>> for JsonApiConverter
+where
+    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
+    RsContentFailure: ApiResponseContentFailure + Send + 'static,
+{
     async fn convert_response(
         &self,
         request: ApiResponse<RsContentSuccess, RsContentFailure>,
@@ -104,52 +104,5 @@ where
                 .body(Body::empty())
                 .unwrap(),
         }
-    }
-}
-
-#[async_trait]
-impl<Extensions, Send, Receive> WebSocketConverter<ApiChannel<Extensions, Send, Receive>>
-    for JsonApiConverter
-where
-    Extensions: ApiChannelExtensions,
-    Send: Serialize + std::marker::Send + Sync + 'static,
-    Receive: for<'de> Deserialize<'de> + std::marker::Send + Sync + 'static,
-{
-    async fn convert_streamable_request(
-        &self,
-        streamable_request: StreamableRequest,
-    ) -> ApiChannel<Extensions, Send, Receive> {
-        let (sink, stream) = streamable_request.stream.split();
-
-        let pretty_printed = self.pretty_printed;
-        let sender = ApiChannelSender::new(
-            Box::new(move |message| {
-                Box::pin(async move {
-                    let serde_result = if pretty_printed {
-                        serde_json::to_string_pretty(&message)
-                    } else {
-                        serde_json::to_string(&message)
-                    };
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
-            sink,
-        );
-
-        let receiver = ApiChannelReceiver::new(
-            Box::new(|message| {
-                Box::pin(async move {
-                    let serde_result = serde_json::from_str(message.as_str());
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
-            stream,
-        );
-
-        ApiChannel::new(
-            Extensions::create(streamable_request.extensions),
-            sender,
-            receiver,
-        )
     }
 }

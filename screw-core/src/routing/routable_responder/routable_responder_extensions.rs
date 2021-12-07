@@ -1,9 +1,9 @@
 use crate::maps::DataMap;
 use hyper::http::request::Parts;
+use hyper::http::Extensions;
 use hyper::{Body, Request};
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio_tungstenite::tungstenite::http::Extensions;
 
 pub trait RoutableResponderExtensions {
     fn remote_addr(&self) -> &SocketAddr;

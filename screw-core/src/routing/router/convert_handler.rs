@@ -1,20 +1,16 @@
-use super::HttpConverter;
-use super::HttpHandler;
+use super::{Handler, RequestConverter, ResponseConverter};
 use std::future::Future;
 use std::sync::Arc;
 
-pub(in crate::routing::router) fn convert_http_handler<C, Rq, Rs, HFn, HFut>(
-    converter: Arc<C>,
-    http_handler: HFn,
-) -> HttpHandler
+pub(super) fn convert_handler<C, Rq, Rs, HFn, HFut>(converter: Arc<C>, handler: HFn) -> Handler
 where
-    C: HttpConverter<Rq, Rs> + Send + Sync + 'static,
+    C: RequestConverter<Rq> + ResponseConverter<Rs> + Send + Sync + 'static,
     Rq: Send + 'static,
     Rs: Send + 'static,
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
     HFut: Future<Output = Rs> + Send + 'static,
 {
-    let handler = Arc::new(http_handler);
+    let handler = Arc::new(handler);
     Box::new(move |request| {
         let handler = handler.clone();
         let converter = converter.clone();

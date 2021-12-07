@@ -2,7 +2,7 @@ use async_trait::async_trait;
 use hyper::Method;
 
 #[async_trait]
-pub trait HttpRoute {
+pub trait Route {
     type Rq: Send + 'static;
     type Rs: Send + 'static;
     fn method() -> &'static Method;
