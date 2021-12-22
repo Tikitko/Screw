@@ -1,27 +1,27 @@
-use super::{Handler, Request, Response};
+use crate::routing::{Handler, Request, Response};
 use hyper::Method;
 use std::collections::HashMap;
 
 pub struct Router {
     pub(super) handlers: HashMap<(Method, String), Handler>,
-    pub(super) not_found_handler: Handler,
+    pub(super) fallback_handler: Handler,
 }
 
 impl Router {
-    pub async fn process(&self, request: Request) -> Response {
-        let method = request.method().clone();
+    pub(crate) async fn process(&self, request: Request) -> Response {
+        let method = request.http.method().clone();
         let path = {
-            let mut path = request.uri().path().to_owned();
+            let mut path = request.http.uri().path().to_string();
             if path.ends_with('/') {
                 path = (&path[..path.len() - 1]).to_string();
             }
             path
         };
 
-        let handler = match self.handlers.get(&(method, path)) {
-            Some(handler) => handler,
-            None => &self.not_found_handler,
-        };
+        let handler = self
+            .handlers
+            .get(&(method, path))
+            .unwrap_or(&self.fallback_handler);
 
         let response = handler(request).await;
 

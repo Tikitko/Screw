@@ -1,10 +1,7 @@
 use hyper::upgrade::{OnUpgrade, Upgraded};
-use screw_core::routing::router::Response;
 use screw_core::DFnOnce;
 use std::future::Future;
-use std::pin::Pin;
 use tokio_tungstenite::tungstenite::error::ProtocolError;
-use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
 use tokio_tungstenite::WebSocketStream;
 
 pub struct WebSocketUpgrade {

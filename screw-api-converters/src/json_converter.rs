@@ -5,13 +5,13 @@ use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
 use hyper::{Error as HyperError, Response as HyperResponse};
 use screw_api::{
-    ApiChannel, ApiChannelExtensions, ApiChannelReceiver, ApiChannelSender, ApiRequest,
-    ApiRequestContent, ApiResponse, ApiResponseContentBase, ApiResponseContentFailure,
+    ApiRequest, ApiRequestContent, ApiResponse, ApiResponseContentBase, ApiResponseContentFailure,
     ApiResponseContentSuccess,
 };
-use screw_core::routing::router::{Request, RequestConverter, Response, ResponseConverter};
+use screw_core::routing::router::RequestResponseConverter;
+use screw_core::routing::{Request, Response};
 use screw_core::DResult;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 
 pub struct JsonApiConverter {
     pub pretty_printed: bool,
@@ -27,9 +27,13 @@ pub enum JsonApiRequestConvertError {
 }
 
 #[async_trait]
-impl<RqContent> RequestConverter<ApiRequest<RqContent>> for JsonApiConverter
+impl<RqContent, RsContentSuccess, RsContentFailure>
+    RequestResponseConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
+    for JsonApiConverter
 where
     RqContent: ApiRequestContent + Send + 'static,
+    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
+    RsContentFailure: ApiResponseContentFailure + Send + 'static,
 {
     async fn convert_request(&self, request: Request) -> ApiRequest<RqContent> {
         async fn convert<Data>(
@@ -61,25 +65,21 @@ where
             }
         }
 
-        let (parts, body) = request.into_parts();
+        let (parts, body) = request.http.into_parts();
         let data_result = convert(&parts, body).await;
 
-        ApiRequest::new(RqContent::create(parts, data_result.map_err(|e| e.into())))
+        ApiRequest::new(RqContent::create(
+            parts,
+            request.remote_addr,
+            request.data_map,
+            data_result.map_err(|e| e.into()),
+        ))
     }
-}
-
-#[async_trait]
-impl<RsContentSuccess, RsContentFailure>
-    ResponseConverter<ApiResponse<RsContentSuccess, RsContentFailure>> for JsonApiConverter
-where
-    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
-    RsContentFailure: ApiResponseContentFailure + Send + 'static,
-{
     async fn convert_response(
         &self,
         request: ApiResponse<RsContentSuccess, RsContentFailure>,
     ) -> Response {
-        let response: DResult<Response> = (|| {
+        let response_result: DResult<hyper::Response<Body>> = (|| {
             let content = request.content();
 
             let status_code = content.status_code();
@@ -97,12 +97,13 @@ where
             Ok(response)
         })();
 
-        match response {
+        let response = match response_result {
             Ok(response) => response,
             Err(_) => HyperResponse::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())
                 .unwrap(),
-        }
+        };
+        Response { http: response }
     }
 }

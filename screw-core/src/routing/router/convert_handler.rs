@@ -1,10 +1,29 @@
-use super::{Handler, RequestConverter, ResponseConverter};
+use super::RequestResponseConverter;
+use crate::routing::{Handler, Request, Response};
 use std::future::Future;
 use std::sync::Arc;
 
-pub(super) fn convert_handler<C, Rq, Rs, HFn, HFut>(converter: Arc<C>, handler: HFn) -> Handler
+pub(super) fn convert_generic_handler<HFn, HFut>(handler: HFn) -> Handler
 where
-    C: RequestConverter<Rq> + ResponseConverter<Rs> + Send + Sync + 'static,
+    HFn: Fn(Request) -> HFut + Send + Sync + 'static,
+    HFut: Future<Output = Response> + Send + 'static,
+{
+    let handler = Arc::new(handler);
+    Box::new(move |request| {
+        let handler = handler.clone();
+        Box::pin(async move {
+            let response = handler(request).await;
+            response
+        })
+    })
+}
+
+pub(super) fn convert_typed_handler<C, Rq, Rs, HFn, HFut>(
+    converter: Arc<C>,
+    handler: HFn,
+) -> Handler
+where
+    C: RequestResponseConverter<Rq, Rs> + Send + Sync + 'static,
     Rq: Send + 'static,
     Rs: Send + 'static,
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
