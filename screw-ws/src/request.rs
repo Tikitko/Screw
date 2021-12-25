@@ -19,7 +19,7 @@ pub trait WebSocketContent {
     fn create(origin_content: WebSocketOriginContent) -> Self;
 }
 
-pub(super) struct WebSocketUpgradeInfo {
+pub(super) struct WebSocketUpgradeInfo { // TODO: Name?
     pub(super) on_upgrade: OnUpgrade,
     pub(super) key: String,
 }
@@ -30,15 +30,6 @@ where
 {
     pub(super) upgrade_info_result: Result<WebSocketUpgradeInfo, ProtocolError>,
     pub(super) stream_converter: DFn<WebSocketStream<Upgraded>, Stream>,
-}
-
-pub struct WebSocketRequest<Content, Stream>
-where
-    Content: WebSocketContent + Send + 'static,
-    Stream: Send + Sync + 'static,
-{
-    pub content: Content,
-    pub upgrade: WebSocketUpgrade<Stream>,
 }
 
 impl<Stream> WebSocketUpgrade<Stream>
@@ -62,4 +53,13 @@ where
             }),
         }
     }
+}
+
+pub struct WebSocketRequest<Content, Stream>
+where
+    Content: WebSocketContent + Send + 'static,
+    Stream: Send + Sync + 'static,
+{
+    pub content: Content,
+    pub upgrade: WebSocketUpgrade<Stream>,
 }

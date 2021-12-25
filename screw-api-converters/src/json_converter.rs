@@ -77,14 +77,16 @@ where
             data_result: data_result.map_err(|e| e.into()),
         });
 
-        ApiRequest::new(request_content)
+        ApiRequest {
+            content: request_content,
+        }
     }
     async fn convert_response(
         &self,
-        api_request: ApiResponse<RsContentSuccess, RsContentFailure>,
+        api_response: ApiResponse<RsContentSuccess, RsContentFailure>,
     ) -> Response {
         let http_response_result: DResult<hyper::Response<Body>> = (|| {
-            let content = api_request.content();
+            let content = api_response.content;
 
             let status_code = content.status_code();
             let json_bytes_vec = if self.pretty_printed {

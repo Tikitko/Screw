@@ -24,22 +24,5 @@ pub struct ApiRequest<Content>
 where
     Content: ApiRequestContent,
 {
-    content: Content,
-}
-
-impl<Content> ApiRequest<Content>
-where
-    Content: ApiRequestContent,
-{
-    pub fn new(content: Content) -> Self {
-        Self { content }
-    }
-
-    pub fn content(self) -> Content {
-        self.content
-    }
-
-    pub fn content_ref(&self) -> &Content {
-        &self.content
-    }
+    pub content: Content,
 }
