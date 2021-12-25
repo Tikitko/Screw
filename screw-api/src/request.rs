@@ -1,17 +1,23 @@
 use hyper::http::request::Parts;
-use screw_core::maps::SharedDataMap;
+use hyper::http::Extensions;
 use screw_core::DResult;
 use serde::Deserialize;
 use std::net::SocketAddr;
+use std::sync::Arc;
+
+pub struct ApiRequestOriginContent<Data>
+where
+    Data: for<'de> Deserialize<'de>,
+{
+    pub http_parts: Parts,
+    pub remote_addr: SocketAddr,
+    pub extensions: Arc<Extensions>,
+    pub data_result: DResult<Data>,
+}
 
 pub trait ApiRequestContent {
     type Data: for<'de> Deserialize<'de>;
-    fn create(
-        parts: Parts,
-        remote_addr: SocketAddr,
-        data_map: SharedDataMap,
-        data_result: DResult<Self::Data>,
-    ) -> Self;
+    fn create(origin_content: ApiRequestOriginContent<Self::Data>) -> Self;
 }
 
 pub struct ApiRequest<Content>

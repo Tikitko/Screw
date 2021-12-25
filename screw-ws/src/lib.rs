@@ -1,5 +1,13 @@
-mod web_socket_converter;
-mod web_socket_request;
+mod converter;
+mod request;
+mod response;
+mod stream_converter;
 
-pub use web_socket_converter::*;
-pub use web_socket_request::*;
+pub use converter::*;
+pub use request::*;
+pub use response::*;
+pub use stream_converter::*;
+
+pub fn is_upgrade_request(request: &hyper::Request<hyper::Body>) -> bool {
+    is_connection_header_upgrade(request) && is_upgrade_header_web_socket(request)
+}

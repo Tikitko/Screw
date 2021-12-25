@@ -3,7 +3,7 @@ pub mod router;
 
 pub struct Request {
     pub remote_addr: std::net::SocketAddr,
-    pub data_map: crate::maps::SharedDataMap,
+    pub extensions: std::sync::Arc<hyper::http::Extensions>,
     pub http: hyper::Request<hyper::Body>,
 }
 pub struct Response {
@@ -23,7 +23,7 @@ pub fn query_params(uri: &hyper::Uri) -> std::collections::HashMap<String, Strin
 }
 
 pub fn routable_server_service(
-    data_map: crate::maps::SharedDataMap,
+    extensions: hyper::http::Extensions,
     router: crate::routing::router::Router,
 ) -> impl for<'a> hyper::service::Service<
     &'a hyper::server::conn::AddrStream,
@@ -36,11 +36,12 @@ pub fn routable_server_service(
         >,
     >,
 > {
+    let extensions = std::sync::Arc::new(extensions);
     let router = std::sync::Arc::new(router);
     crate::server::ServerService::new(move |remote_addr| {
         crate::routing::routable_responder::RoutableResponder {
             remote_addr,
-            data_map: data_map.clone(),
+            extensions: extensions.clone(),
             router: router.clone(),
         }
     })

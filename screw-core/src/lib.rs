@@ -1,4 +1,3 @@
-pub mod maps;
 pub mod routing;
 pub mod server;
 

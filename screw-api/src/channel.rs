@@ -1,58 +1,46 @@
 use futures::stream::{SplitSink, SplitStream};
 use futures::{SinkExt, StreamExt};
+use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::Upgraded;
 use screw_core::DFn;
 use screw_core::{DError, DResult};
 use serde::{Deserialize, Serialize};
+use std::net::SocketAddr;
+use std::sync::Arc;
 use tokio_tungstenite::tungstenite::{Error, Message};
 use tokio_tungstenite::WebSocketStream;
 
-pub trait ApiChannelExtensions {
-    fn create(extensions: Extensions) -> Self;
+pub struct ApiChannelOriginContent {
+    pub http_parts: Parts,
+    pub remote_addr: SocketAddr,
+    pub extensions: Arc<Extensions>,
 }
 
-pub struct ApiChannel<Extensions, Send, Receive>
+pub trait ApiChannelContent {
+    fn create(origin_content: ApiChannelOriginContent) -> Self;
+}
+
+pub struct ApiChannel<Send, Receive>
 where
-    Extensions: ApiChannelExtensions,
     Send: Serialize + std::marker::Send + 'static,
     Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
 {
-    extensions: Extensions,
     sender: ApiChannelSender<Send>,
     receiver: ApiChannelReceiver<Receive>,
 }
 
-impl<Extensions, Send, Receive> ApiChannel<Extensions, Send, Receive>
+impl<Send, Receive> ApiChannel<Send, Receive>
 where
-    Extensions: ApiChannelExtensions,
     Send: Serialize + std::marker::Send + 'static,
     Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
 {
-    pub fn new(
-        extensions: Extensions,
-        sender: ApiChannelSender<Send>,
-        receiver: ApiChannelReceiver<Receive>,
-    ) -> Self {
-        Self {
-            extensions,
-            sender,
-            receiver,
-        }
+    pub fn new(sender: ApiChannelSender<Send>, receiver: ApiChannelReceiver<Receive>) -> Self {
+        Self { sender, receiver }
     }
 
-    pub fn split(
-        self,
-    ) -> (
-        Extensions,
-        ApiChannelSender<Send>,
-        ApiChannelReceiver<Receive>,
-    ) {
-        (self.extensions, self.sender, self.receiver)
-    }
-
-    pub fn extensions_ref(&self) -> &Extensions {
-        &self.extensions
+    pub fn split(self) -> (ApiChannelSender<Send>, ApiChannelReceiver<Receive>) {
+        (self.sender, self.receiver)
     }
 
     pub fn sender_mut_ref(&mut self) -> &mut ApiChannelSender<Send> {
