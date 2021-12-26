@@ -19,7 +19,7 @@ pub trait WebSocketContent {
     fn create(origin_content: WebSocketOriginContent) -> Self;
 }
 
-pub(super) struct WebSocketUpgradeInfo { // TODO: Name?
+pub(super) struct WebSocketUpgradable {
     pub(super) on_upgrade: OnUpgrade,
     pub(super) key: String,
 }
@@ -28,7 +28,7 @@ pub struct WebSocketUpgrade<Stream>
 where
     Stream: Send + Sync + 'static,
 {
-    pub(super) upgrade_info_result: Result<WebSocketUpgradeInfo, ProtocolError>,
+    pub(super) upgradable_result: Result<WebSocketUpgradable, ProtocolError>,
     pub(super) stream_converter: DFn<WebSocketStream<Upgraded>, Stream>,
 }
 
@@ -43,7 +43,7 @@ where
     {
         let stream_converter = Arc::new(self.stream_converter);
         WebSocketResponse {
-            upgrade_info_result: self.upgrade_info_result,
+            upgradable_result: self.upgradable_result,
             upgraded_handler: Box::new(move |generic_stream| {
                 let stream_converter = stream_converter.clone();
                 Box::pin(async move {

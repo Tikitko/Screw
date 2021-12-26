@@ -1,6 +1,6 @@
 use async_trait::async_trait;
 use derive_error::Error;
-use futures::StreamExt;
+use futures::{future, StreamExt};
 use hyper::header::ToStrError;
 use hyper::http::request::Parts;
 use hyper::upgrade::Upgraded;
@@ -15,8 +15,20 @@ use screw_core::routing::{Request, Response};
 use screw_core::DResult;
 use serde::{Deserialize, Serialize};
 
-pub struct JsonApiConverter {
+pub struct JsonApiConverterParams {
     pub pretty_printed: bool,
+}
+
+pub struct JsonApiConverter {
+    pretty_printed: bool,
+}
+
+impl JsonApiConverter {
+    pub fn new(params: JsonApiConverterParams) -> Self {
+        Self {
+            pretty_printed: params.pretty_printed,
+        }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -103,13 +115,13 @@ where
             Ok(response)
         })();
 
-        let http_response = match http_response_result {
-            Ok(http_response) => http_response,
-            Err(_) => hyper::Response::builder()
+        let http_response = http_response_result.unwrap_or(
+            hyper::Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())
                 .unwrap(),
-        };
+        );
+
         Response {
             http: http_response,
         }
@@ -132,26 +144,22 @@ where
         let pretty_printed = self.pretty_printed;
 
         let sender = ApiChannelSender::new(
-            Box::new(move |message| {
-                Box::pin(async move {
-                    let serde_result = if pretty_printed {
-                        serde_json::to_string_pretty(&message)
-                    } else {
-                        serde_json::to_string(&message)
-                    };
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
+            move |message| {
+                let serde_result = if pretty_printed {
+                    serde_json::to_string_pretty(&message)
+                } else {
+                    serde_json::to_string(&message)
+                };
+                future::ready(serde_result.map_err(|e| e.into()))
+            },
             sink,
         );
 
         let receiver = ApiChannelReceiver::new(
-            Box::new(|message| {
-                Box::pin(async move {
-                    let serde_result = serde_json::from_str(message.as_str());
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
+            |message| {
+                let serde_result = serde_json::from_str(message.as_str());
+                future::ready(serde_result.map_err(|e| e.into()))
+            },
             stream,
         );
 

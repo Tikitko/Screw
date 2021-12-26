@@ -6,6 +6,6 @@ impl ApiRequestContent for EmptyApiRequestContent {
     type Data = ();
 
     fn create(_origin_content: ApiRequestOriginContent<Self::Data>) -> Self {
-        EmptyApiRequestContent
+        Self
     }
 }

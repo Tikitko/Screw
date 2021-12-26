@@ -1,6 +1,6 @@
 use crate::{
     WebSocketContent, WebSocketOriginContent, WebSocketRequest, WebSocketResponse,
-    WebSocketStreamConverter, WebSocketUpgrade, WebSocketUpgradeInfo,
+    WebSocketStreamConverter, WebSocketUpgradable, WebSocketUpgrade,
 };
 use async_trait::async_trait;
 use futures_util::{FutureExt, TryFutureExt};
@@ -55,9 +55,9 @@ pub fn is_upgrade_request(request: &hyper::Request<hyper::Body>) -> bool {
     is_connection_header_upgrade(request) && is_upgrade_header_web_socket(request)
 }
 
-fn try_upgrade_info(
+fn try_upgradable(
     http_request: &mut hyper::Request<Body>,
-) -> Result<WebSocketUpgradeInfo, ProtocolError> {
+) -> Result<WebSocketUpgradable, ProtocolError> {
     if !is_get_method(http_request) {
         return Err(ProtocolError::WrongHttpMethod);
     }
@@ -86,15 +86,35 @@ fn try_upgrade_info(
 
     let on_upgrade = upgrade::on(http_request);
 
-    Ok(WebSocketUpgradeInfo { on_upgrade, key })
+    Ok(WebSocketUpgradable { on_upgrade, key })
+}
+
+pub struct WebSocketConverterParams<C>
+where
+    C: Sync + Send + 'static,
+{
+    pub stream_converter: C,
+    pub config: Option<WebSocketConfig>,
 }
 
 pub struct WebSocketConverter<C>
 where
     C: Sync + Send + 'static,
 {
-    pub stream_converter: Arc<C>, // TODO: Remove arc?
-    pub config: Option<WebSocketConfig>,
+    stream_converter: Arc<C>,
+    config: Option<WebSocketConfig>,
+}
+
+impl<C> WebSocketConverter<C>
+where
+    C: Sync + Send + 'static,
+{
+    pub fn new(params: WebSocketConverterParams<C>) -> Self {
+        Self {
+            stream_converter: Arc::new(params.stream_converter),
+            config: params.config,
+        }
+    }
 }
 
 #[async_trait]
@@ -107,11 +127,11 @@ where
     Stream: Send + Sync + 'static,
 {
     async fn convert_request(&self, mut request: Request) -> WebSocketRequest<Content, Stream> {
-        let upgrade_info_result = try_upgrade_info(&mut request.http);
+        let upgradable_result = try_upgradable(&mut request.http);
         let (http_parts, _) = request.http.into_parts();
 
-        if let Err(ProtocolError::WrongHttpMethod) = upgrade_info_result {
-            panic!("ProtocolError::WrongHttpMethod");
+        if let Err(ProtocolError::WrongHttpMethod) = upgradable_result {
+            panic!("Incorrect method for WebSocket! Should be GET.");
         }
 
         let request_content = Content::create(WebSocketOriginContent {
@@ -122,7 +142,7 @@ where
 
         let stream_converter = self.stream_converter.clone();
         let request_upgrade = WebSocketUpgrade {
-            upgrade_info_result,
+            upgradable_result,
             stream_converter: Box::new(move |generic_stream| {
                 let stream_converter = stream_converter.clone();
                 Box::pin(async move {
@@ -138,11 +158,11 @@ where
         }
     }
     async fn convert_response(&self, response: WebSocketResponse) -> Response {
-        let http_response = match response.upgrade_info_result {
-            Ok(upgrade_info) => {
+        let http_response = match response.upgradable_result {
+            Ok(upgradable) => {
                 let config = self.config;
 
-                let future = upgrade_info
+                let future = upgradable
                     .on_upgrade
                     .and_then(move |upgraded| {
                         WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
@@ -156,7 +176,7 @@ where
                     .status(StatusCode::SWITCHING_PROTOCOLS)
                     .header("Connection", "Upgrade")
                     .header("Upgrade", "websocket")
-                    .header("Sec-WebSocket-Accept", upgrade_info.key)
+                    .header("Sec-WebSocket-Accept", upgradable.key)
                     .body(Body::empty())
                     .unwrap()
             }

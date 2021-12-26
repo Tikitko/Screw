@@ -5,6 +5,14 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
+pub struct RoutesCollectionBuilderParams<C>
+where
+    C: Send + Sync + 'static,
+{
+    pub scope_path: &'static str,
+    pub converter: C,
+}
+
 pub struct RoutesCollectionBuilder<C>
 where
     C: Send + Sync + 'static,
@@ -18,10 +26,10 @@ impl<C> RoutesCollectionBuilder<C>
 where
     C: Send + Sync + 'static,
 {
-    pub fn new(scope_path: &'static str, converter: C) -> Self {
+    pub fn new(params: RoutesCollectionBuilderParams<C>) -> Self {
         Self {
-            scope_path,
-            converter: Arc::new(converter),
+            scope_path: params.scope_path,
+            converter: Arc::new(params.converter),
             handlers: Default::default(),
         }
     }

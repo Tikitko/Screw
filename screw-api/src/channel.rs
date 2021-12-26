@@ -6,6 +6,7 @@ use hyper::upgrade::Upgraded;
 use screw_core::DFn;
 use screw_core::{DError, DResult};
 use serde::{Deserialize, Serialize};
+use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite::{Error, Message};
@@ -69,11 +70,22 @@ impl<Send> ApiChannelSender<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    pub fn new(
-        converter: DFn<Send, DResult<String>>,
+    pub fn new<HFn, HFut>(
+        converter: HFn,
         sink: SplitSink<WebSocketStream<Upgraded>, Message>,
-    ) -> Self {
-        ApiChannelSender { converter, sink }
+    ) -> Self
+    where
+        HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
+        HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
+    {
+        let converter = Arc::new(converter);
+        ApiChannelSender {
+            converter: Box::new(move |message| {
+                let converter = converter.clone();
+                Box::pin(async move { converter(message).await })
+            }),
+            sink,
+        }
     }
 
     pub async fn send(&mut self, message: Send) -> Result<(), ApiChannelSenderError> {
@@ -116,11 +128,19 @@ impl<Receive> ApiChannelReceiver<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
-    pub fn new(
-        converter: DFn<String, DResult<Receive>>,
-        stream: SplitStream<WebSocketStream<Upgraded>>,
-    ) -> Self {
-        ApiChannelReceiver { converter, stream }
+    pub fn new<HFn, HFut>(converter: HFn, stream: SplitStream<WebSocketStream<Upgraded>>) -> Self
+    where
+        HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
+        HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
+    {
+        let converter = Arc::new(converter);
+        ApiChannelReceiver {
+            converter: Box::new(move |message| {
+                let converter = converter.clone();
+                Box::pin(async move { converter(message).await })
+            }),
+            stream,
+        }
     }
 
     pub async fn next_message(&mut self) -> Result<Receive, ApiChannelReceiverError> {
