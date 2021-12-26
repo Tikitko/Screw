@@ -131,7 +131,7 @@ where
         let (http_parts, _) = request.http.into_parts();
 
         if let Err(ProtocolError::WrongHttpMethod) = upgradable_result {
-            panic!("Incorrect method for WebSocket! Should be GET.");
+            panic!("incorrect method for WebSocket, should be GET");
         }
 
         let request_content = Content::create(WebSocketOriginContent {

@@ -1,15 +1,28 @@
 use super::{convert_generic_handler, Router, RoutesCollection};
 use crate::routing::router::HandlerRoute;
 use crate::routing::{Handler, Request, Response};
-use derive_error::Error;
 use hyper::Method;
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt::{Display, Formatter};
 use std::future::Future;
 
-#[derive(Error, Debug)]
+#[derive(Debug)]
 pub enum RouterBuilderError {
     FallbackHandlerMissing,
 }
+
+impl Display for RouterBuilderError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RouterBuilderError::FallbackHandlerMissing => {
+                write!(f, "handler for fallback case is not installed")
+            }
+        }
+    }
+}
+
+impl Error for RouterBuilderError {}
 
 pub struct RouterBuilder {
     handlers: HashMap<(Method, String), Handler>,
