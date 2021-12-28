@@ -1,24 +1,24 @@
 use async_trait::async_trait;
 use derive_error::Error;
-use futures::StreamExt;
 use hyper::header::ToStrError;
 use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
-use hyper::{Error as HyperError, Response as HyperResponse};
 use screw_api::{
-    ApiChannel, ApiChannelExtensions, ApiChannelReceiver, ApiChannelSender, ApiRequest,
-    ApiRequestContent, ApiResponse, ApiResponseContentBase, ApiResponseContentFailure,
-    ApiResponseContentSuccess,
+    ApiRequest, ApiRequestContent, ApiRequestOriginContent, ApiResponse, ApiResponseContentBase,
+    ApiResponseContentFailure, ApiResponseContentSuccess,
 };
-use screw_core::routing::router::http::HttpConverter;
-use screw_core::routing::router::http::{Request, Response};
-use screw_core::routing::router::web_socket::StreamableRequest;
-use screw_core::routing::router::web_socket::WebSocketConverter;
-use screw_core::DResult;
-use serde::{Deserialize, Serialize};
+use screw_components::dyn_result::DResult;
+use screw_core::routing::{Request, RequestResponseConverter, Response};
+use serde::Deserialize;
 
 pub struct JsonApiConverter {
-    pub pretty_printed: bool,
+    pretty_printed: bool,
+}
+
+impl JsonApiConverter {
+    pub fn with_pretty_printed(pretty_printed: bool) -> Self {
+        Self { pretty_printed }
+    }
 }
 
 #[derive(Error, Debug)]
@@ -26,13 +26,13 @@ pub enum JsonApiRequestConvertError {
     ContentTypeMissed,
     ContentTypeIncorrect,
     ToStr(ToStrError),
-    Hyper(HyperError),
+    Hyper(hyper::Error),
     SerdeJson(serde_json::Error),
 }
 
 #[async_trait]
 impl<RqContent, RsContentSuccess, RsContentFailure>
-    HttpConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
+    RequestResponseConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
     for JsonApiConverter
 where
     RqContent: ApiRequestContent + Send + 'static,
@@ -51,7 +51,7 @@ where
                 Some(content_type) => Some(
                     content_type
                         .to_str()
-                        .map_err(|e| JsonApiRequestConvertError::ToStr(e))?,
+                        .map_err(JsonApiRequestConvertError::ToStr)?,
                 ),
                 None => None,
             };
@@ -59,9 +59,9 @@ where
                 Some("application/json") => {
                     let bytes = hyper::body::to_bytes(body)
                         .await
-                        .map_err(|e| JsonApiRequestConvertError::Hyper(e))?;
+                        .map_err(JsonApiRequestConvertError::Hyper)?;
                     let data = serde_json::from_slice(&bytes)
-                        .map_err(|e| JsonApiRequestConvertError::SerdeJson(e))?;
+                        .map_err(JsonApiRequestConvertError::SerdeJson)?;
                     Ok(data)
                 }
                 Some("") | None => Err(JsonApiRequestConvertError::ContentTypeMissed),
@@ -69,18 +69,26 @@ where
             }
         }
 
-        let (parts, body) = request.into_parts();
-        let data_result = convert(&parts, body).await;
+        let (http_parts, http_body) = request.http.into_parts();
+        let data_result = convert(&http_parts, http_body).await;
 
-        ApiRequest::new(RqContent::create(parts, data_result.map_err(|e| e.into())))
+        let request_content = RqContent::create(ApiRequestOriginContent {
+            http_parts,
+            remote_addr: request.remote_addr,
+            extensions: request.extensions,
+            data_result: data_result.map_err(|e| e.into()),
+        });
+
+        ApiRequest {
+            content: request_content,
+        }
     }
-
     async fn convert_response(
         &self,
-        request: ApiResponse<RsContentSuccess, RsContentFailure>,
+        api_response: ApiResponse<RsContentSuccess, RsContentFailure>,
     ) -> Response {
-        let response: DResult<Response> = (|| {
-            let content = request.content();
+        let http_response_result: DResult<hyper::Response<Body>> = (|| {
+            let content = api_response.content;
 
             let status_code = content.status_code();
             let json_bytes_vec = if self.pretty_printed {
@@ -89,7 +97,7 @@ where
                 serde_json::to_vec(&content)?
             };
 
-            let response = HyperResponse::builder()
+            let response = hyper::Response::builder()
                 .status(status_code)
                 .header(header::CONTENT_TYPE, "application/json")
                 .body(Body::from(json_bytes_vec))?;
@@ -97,59 +105,58 @@ where
             Ok(response)
         })();
 
-        match response {
-            Ok(response) => response,
-            Err(_) => HyperResponse::builder()
+        let http_response = http_response_result.unwrap_or_else(|_| {
+            hyper::Response::builder()
                 .status(StatusCode::INTERNAL_SERVER_ERROR)
                 .body(Body::empty())
-                .unwrap(),
+                .unwrap()
+        });
+
+        Response {
+            http: http_response,
         }
     }
 }
 
-#[async_trait]
-impl<Extensions, Send, Receive> WebSocketConverter<ApiChannel<Extensions, Send, Receive>>
-    for JsonApiConverter
-where
-    Extensions: ApiChannelExtensions,
-    Send: Serialize + std::marker::Send + Sync + 'static,
-    Receive: for<'de> Deserialize<'de> + std::marker::Send + Sync + 'static,
-{
-    async fn convert_streamable_request(
-        &self,
-        streamable_request: StreamableRequest,
-    ) -> ApiChannel<Extensions, Send, Receive> {
-        let (sink, stream) = streamable_request.stream.split();
+#[cfg(feature = "ws")]
+pub mod ws {
+    use super::JsonApiConverter;
+    use async_trait::async_trait;
+    use futures::{future, StreamExt};
+    use hyper::upgrade::Upgraded;
+    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
+    use screw_ws::WebSocketStreamConverter;
+    use serde::{Deserialize, Serialize};
+    use tokio_tungstenite::WebSocketStream;
 
-        let pretty_printed = self.pretty_printed;
-        let sender = ApiChannelSender::new(
-            Box::new(move |message| {
-                Box::pin(async move {
-                    let serde_result = if pretty_printed {
-                        serde_json::to_string_pretty(&message)
-                    } else {
-                        serde_json::to_string(&message)
-                    };
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
-            sink,
-        );
+    #[async_trait]
+    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>> for JsonApiConverter
+    where
+        Send: Serialize + std::marker::Send + 'static,
+        Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
+    {
+        async fn convert_stream(
+            &self,
+            stream: WebSocketStream<Upgraded>,
+        ) -> ApiChannel<Send, Receive> {
+            let (sink, stream) = stream.split();
+            let pretty_printed = self.pretty_printed;
 
-        let receiver = ApiChannelReceiver::new(
-            Box::new(|message| {
-                Box::pin(async move {
-                    let serde_result = serde_json::from_str(message.as_str());
-                    serde_result.map_err(|e| e.into())
-                })
-            }),
-            stream,
-        );
+            let sender = ApiChannelSender::with_sink(sink).and_converter(move |message| {
+                let serde_result = if pretty_printed {
+                    serde_json::to_string_pretty(&message)
+                } else {
+                    serde_json::to_string(&message)
+                };
+                future::ready(serde_result.map_err(|e| e.into()))
+            });
 
-        ApiChannel::new(
-            Extensions::create(streamable_request.extensions),
-            sender,
-            receiver,
-        )
+            let receiver = ApiChannelReceiver::with_stream(stream).and_converter(|message| {
+                let serde_result = serde_json::from_str(message.as_str());
+                future::ready(serde_result.map_err(|e| e.into()))
+            });
+
+            ApiChannel { sender, receiver }
+        }
     }
 }

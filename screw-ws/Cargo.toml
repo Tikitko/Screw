@@ -1,13 +1,14 @@
 [package]
-name = "screw-api"
+name = "screw-ws"
 version = "0.0.1"
 edition = "2021"
 
 [dependencies]
 screw-components = { path = "../screw-components" }
 screw-core = { path = "../screw-core" }
-hyper = { version = "0.14.9", features = ["http1", "http2"] }
+hyper = { version = "0.14.9", features = ["full"] }
+tokio = { version = "1.7.1", features = ["full"] }
 tokio-tungstenite = { version = "0.16.0" }
-serde = { version = "1.0.130", features = ["derive"] }
 async-trait = { version = "0.1.50" }
-futures = { version = "0.3.18" }
+futures-util = "0.3.18"
+

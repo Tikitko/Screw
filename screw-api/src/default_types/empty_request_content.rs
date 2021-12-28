@@ -1,13 +1,11 @@
-use crate::ApiRequestContent;
-use hyper::http::request::Parts;
-use screw_core::DResult;
+use crate::{ApiRequestContent, ApiRequestOriginContent};
 
 pub struct EmptyApiRequestContent;
 
 impl ApiRequestContent for EmptyApiRequestContent {
     type Data = ();
 
-    fn create(_parts: Parts, _data_result: DResult<Self::Data>) -> Self {
-        EmptyApiRequestContent
+    fn create(_origin_content: ApiRequestOriginContent<Self::Data>) -> Self {
+        Self
     }
 }

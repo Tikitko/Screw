@@ -74,7 +74,7 @@ where
     Success: ApiResponseContentSuccess,
     Failure: ApiResponseContentFailure,
 {
-    content: ApiResponseContent<Success, Failure>,
+    pub content: ApiResponseContent<Success, Failure>,
 }
 
 impl<Success, Failure> ApiResponse<Success, Failure>
@@ -82,10 +82,6 @@ where
     Success: ApiResponseContentSuccess,
     Failure: ApiResponseContentFailure,
 {
-    pub fn new(content: ApiResponseContent<Success, Failure>) -> Self {
-        Self { content }
-    }
-
     pub fn success(content_success: Success) -> Self {
         Self {
             content: ApiResponseContent::Success(content_success),
@@ -96,13 +92,5 @@ where
         Self {
             content: ApiResponseContent::Failure(content_failure),
         }
-    }
-
-    pub fn content(self) -> ApiResponseContent<Success, Failure> {
-        self.content
-    }
-
-    pub fn content_ref(&self) -> &ApiResponseContent<Success, Failure> {
-        &self.content
     }
 }
