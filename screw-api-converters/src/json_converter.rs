@@ -15,19 +15,13 @@ use screw_core::routing::{Request, Response};
 use screw_core::DResult;
 use serde::{Deserialize, Serialize};
 
-pub struct JsonApiConverterParams {
-    pub pretty_printed: bool,
-}
-
 pub struct JsonApiConverter {
     pretty_printed: bool,
 }
 
 impl JsonApiConverter {
-    pub fn new(params: JsonApiConverterParams) -> Self {
-        Self {
-            pretty_printed: params.pretty_printed,
-        }
+    pub fn with_pretty_printed(pretty_printed: bool) -> Self {
+        Self { pretty_printed }
     }
 }
 
@@ -143,26 +137,20 @@ where
         let (sink, stream) = stream.split();
         let pretty_printed = self.pretty_printed;
 
-        let sender = ApiChannelSender::new(
-            move |message| {
-                let serde_result = if pretty_printed {
-                    serde_json::to_string_pretty(&message)
-                } else {
-                    serde_json::to_string(&message)
-                };
-                future::ready(serde_result.map_err(|e| e.into()))
-            },
-            sink,
-        );
+        let sender = ApiChannelSender::with_sink(sink).and_converter(move |message| {
+            let serde_result = if pretty_printed {
+                serde_json::to_string_pretty(&message)
+            } else {
+                serde_json::to_string(&message)
+            };
+            future::ready(serde_result.map_err(|e| e.into()))
+        });
 
-        let receiver = ApiChannelReceiver::new(
-            |message| {
-                let serde_result = serde_json::from_str(message.as_str());
-                future::ready(serde_result.map_err(|e| e.into()))
-            },
-            stream,
-        );
+        let receiver = ApiChannelReceiver::with_stream(stream).and_converter(|message| {
+            let serde_result = serde_json::from_str(message.as_str());
+            future::ready(serde_result.map_err(|e| e.into()))
+        });
 
-        ApiChannel::new(sender, receiver)
+        ApiChannel { sender, receiver }
     }
 }

@@ -11,17 +11,7 @@ where
     R: Responder,
     R::ResponseFuture: 'static,
 {
-    responder: R,
-}
-
-impl<R> SessionService<R>
-where
-    R: Responder,
-    R::ResponseFuture: 'static,
-{
-    pub(crate) fn new(responder: R) -> Self {
-        Self { responder }
-    }
+    pub(crate) responder: R,
 }
 
 impl<R> Service<Request<Body>> for SessionService<R>

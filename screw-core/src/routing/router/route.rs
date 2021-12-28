@@ -3,19 +3,36 @@ use std::future::Future;
 use std::marker::PhantomData;
 
 pub struct Route {
-    pub method: &'static Method,
-    pub path: &'static str,
+    method: &'static Method,
 }
 
 impl Route {
-    pub fn with_handler<Rq, Rs, HFn, HFut>(self, handler: HFn) -> HandlerRoute<Rq, Rs, HFn, HFut>
+    pub fn with_method(method: &'static Method) -> Self {
+        Self { method }
+    }
+
+    pub fn and_path(self, path: &'static str) -> RouteSecondPart {
+        RouteSecondPart {
+            method: self.method,
+            path,
+        }
+    }
+}
+
+pub struct RouteSecondPart {
+    method: &'static Method,
+    path: &'static str,
+}
+
+impl RouteSecondPart {
+    pub fn and_handler<Rq, Rs, HFn, HFut>(self, handler: HFn) -> RouteFinal<Rq, Rs, HFn, HFut>
     where
         Rq: Send + 'static,
         Rs: Send + 'static,
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = Rs> + Send + 'static,
     {
-        HandlerRoute {
+        RouteFinal {
             method: self.method,
             path: self.path,
             handler,
@@ -26,7 +43,7 @@ impl Route {
     }
 }
 
-pub struct HandlerRoute<Rq, Rs, HFn, HFut>
+pub struct RouteFinal<Rq, Rs, HFn, HFut>
 where
     Rq: Send + 'static,
     Rs: Send + 'static,

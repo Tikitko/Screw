@@ -38,7 +38,7 @@ pub fn routable_server_service(
 > {
     let extensions = std::sync::Arc::new(extensions);
     let router = std::sync::Arc::new(router);
-    crate::server::ServerService::new(move |remote_addr| {
+    crate::server::ServerService::with_make_responder_fn(move |remote_addr| {
         crate::routing::routable_responder::RoutableResponder {
             remote_addr,
             extensions: extensions.clone(),

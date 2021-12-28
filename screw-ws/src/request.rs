@@ -60,6 +60,16 @@ where
     Content: WebSocketContent + Send + 'static,
     Stream: Send + Sync + 'static,
 {
-    pub content: Content,
-    pub upgrade: WebSocketUpgrade<Stream>,
+    pub(super) content: Content,
+    pub(super) upgrade: WebSocketUpgrade<Stream>,
+}
+
+impl<Content, Stream> WebSocketRequest<Content, Stream>
+where
+    Content: WebSocketContent + Send + 'static,
+    Stream: Send + Sync + 'static,
+{
+    pub fn split(self) -> (Content, WebSocketUpgrade<Stream>) {
+        (self.content, self.upgrade)
+    }
 }

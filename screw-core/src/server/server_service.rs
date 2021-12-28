@@ -22,7 +22,7 @@ where
     R: Responder,
     R::ResponseFuture: 'static,
 {
-    pub fn new(make_responder_fn: F) -> Self {
+    pub fn with_make_responder_fn(make_responder_fn: F) -> Self {
         Self { make_responder_fn }
     }
 }
@@ -44,7 +44,7 @@ where
     fn call(&mut self, addr_stream: &AddrStream) -> Self::Future {
         let remote_addr = addr_stream.remote_addr();
         let responder = (self.make_responder_fn)(remote_addr);
-        let session_service = SessionService::new(responder);
+        let session_service = SessionService { responder };
 
         ready(Ok(session_service))
     }

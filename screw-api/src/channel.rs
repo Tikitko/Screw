@@ -27,30 +27,8 @@ where
     Send: Serialize + std::marker::Send + 'static,
     Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
 {
-    sender: ApiChannelSender<Send>,
-    receiver: ApiChannelReceiver<Receive>,
-}
-
-impl<Send, Receive> ApiChannel<Send, Receive>
-where
-    Send: Serialize + std::marker::Send + 'static,
-    Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
-{
-    pub fn new(sender: ApiChannelSender<Send>, receiver: ApiChannelReceiver<Receive>) -> Self {
-        Self { sender, receiver }
-    }
-
-    pub fn split(self) -> (ApiChannelSender<Send>, ApiChannelReceiver<Receive>) {
-        (self.sender, self.receiver)
-    }
-
-    pub fn sender_mut_ref(&mut self) -> &mut ApiChannelSender<Send> {
-        &mut self.sender
-    }
-
-    pub fn receiver_mut_ref(&mut self) -> &mut ApiChannelReceiver<Receive> {
-        &mut self.receiver
-    }
+    pub sender: ApiChannelSenderFinal<Send>,
+    pub receiver: ApiChannelReceiverFinal<Receive>,
 }
 
 pub enum ApiChannelSenderError {
@@ -58,7 +36,33 @@ pub enum ApiChannelSenderError {
     Tungstenite(Error),
 }
 
-pub struct ApiChannelSender<Send>
+pub struct ApiChannelSender {
+    sink: SplitSink<WebSocketStream<Upgraded>, Message>,
+}
+
+impl ApiChannelSender {
+    pub fn with_sink(sink: SplitSink<WebSocketStream<Upgraded>, Message>) -> Self {
+        Self { sink }
+    }
+
+    pub fn and_converter<Send, HFn, HFut>(self, converter: HFn) -> ApiChannelSenderFinal<Send>
+    where
+        Send: Serialize + std::marker::Send + 'static,
+        HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
+        HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
+    {
+        let converter = Arc::new(converter);
+        ApiChannelSenderFinal {
+            converter: Box::new(move |message| {
+                let converter = converter.clone();
+                Box::pin(async move { converter(message).await })
+            }),
+            sink: self.sink,
+        }
+    }
+}
+
+pub struct ApiChannelSenderFinal<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
@@ -66,28 +70,10 @@ where
     sink: SplitSink<WebSocketStream<Upgraded>, Message>,
 }
 
-impl<Send> ApiChannelSender<Send>
+impl<Send> ApiChannelSenderFinal<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    pub fn new<HFn, HFut>(
-        converter: HFn,
-        sink: SplitSink<WebSocketStream<Upgraded>, Message>,
-    ) -> Self
-    where
-        HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
-        HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
-    {
-        let converter = Arc::new(converter);
-        ApiChannelSender {
-            converter: Box::new(move |message| {
-                let converter = converter.clone();
-                Box::pin(async move { converter(message).await })
-            }),
-            sink,
-        }
-    }
-
     pub async fn send(&mut self, message: Send) -> Result<(), ApiChannelSenderError> {
         let converter = &self.converter;
 
@@ -116,33 +102,47 @@ pub enum ApiChannelReceiverError {
     Closed,
 }
 
-pub struct ApiChannelReceiver<Receive>
-where
-    for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
-{
-    converter: DFn<String, DResult<Receive>>,
+pub struct ApiChannelReceiver {
     stream: SplitStream<WebSocketStream<Upgraded>>,
 }
 
-impl<Receive> ApiChannelReceiver<Receive>
-where
-    for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
-{
-    pub fn new<HFn, HFut>(converter: HFn, stream: SplitStream<WebSocketStream<Upgraded>>) -> Self
+impl ApiChannelReceiver {
+    pub fn with_stream(stream: SplitStream<WebSocketStream<Upgraded>>) -> Self {
+        Self { stream }
+    }
+
+    pub fn and_converter<Receive, HFn, HFut>(
+        self,
+        converter: HFn,
+    ) -> ApiChannelReceiverFinal<Receive>
     where
+        for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
         HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
     {
         let converter = Arc::new(converter);
-        ApiChannelReceiver {
+        ApiChannelReceiverFinal {
             converter: Box::new(move |message| {
                 let converter = converter.clone();
                 Box::pin(async move { converter(message).await })
             }),
-            stream,
+            stream: self.stream,
         }
     }
+}
 
+pub struct ApiChannelReceiverFinal<Receive>
+where
+    for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
+{
+    stream: SplitStream<WebSocketStream<Upgraded>>,
+    converter: DFn<String, DResult<Receive>>,
+}
+
+impl<Receive> ApiChannelReceiverFinal<Receive>
+where
+    for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
+{
     pub async fn next_message(&mut self) -> Result<Receive, ApiChannelReceiverError> {
         let converter = &self.converter;
 
