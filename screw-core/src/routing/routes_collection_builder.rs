@@ -1,5 +1,6 @@
-use super::{convert_typed_handler, RequestResponseConverter, RouteFinal, RoutesCollection};
-use crate::routing::Handler;
+use super::{
+    convert_typed_handler, Handler, RequestResponseConverter, RouteFinal, RoutesCollection,
+};
 use hyper::Method;
 use std::collections::HashMap;
 use std::future::Future;
@@ -52,7 +53,6 @@ where
     Rs: Send + 'static,
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
     HFut: Future<Output = Rs> + Send + 'static,
-    C: RequestResponseConverter<Rq, Rs> + Send + Sync + 'static,
 {
     fn route(self, route: RouteFinal<Rq, Rs, HFn, HFut>) -> Self;
 }

@@ -6,8 +6,7 @@ use async_trait::async_trait;
 use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
-use screw_core::routing::router::RequestResponseConverter;
-use screw_core::routing::{Request, Response};
+use screw_core::routing::{Request, RequestResponseConverter, Response};
 use std::sync::Arc;
 use tokio::task;
 use tokio_tungstenite::tungstenite::error::ProtocolError;
@@ -130,10 +129,6 @@ where
         let upgradable_result = try_upgradable(&mut request.http);
         let (http_parts, _) = request.http.into_parts();
 
-        if let Err(ProtocolError::WrongHttpMethod) = upgradable_result {
-            panic!("incorrect method for WebSocket, should be GET");
-        }
-
         let request_content = Content::create(WebSocketOriginContent {
             http_parts,
             remote_addr: request.remote_addr,
@@ -167,8 +162,7 @@ where
                     .and_then(move |upgraded| {
                         WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
                     })
-                    .and_then(move |stream| (response.upgraded_handler)(stream).map(Ok))
-                    .map(move |result| if let Err(_) = result {});
+                    .and_then(move |stream| (response.upgraded_handler)(stream).map(Ok));
 
                 task::spawn(future);
 
@@ -180,10 +174,15 @@ where
                     .body(Body::empty())
                     .unwrap()
             }
-            Err(_) => hyper::Response::builder()
-                .status(StatusCode::BAD_REQUEST)
-                .body(Body::empty())
-                .unwrap(),
+            Err(protocol_error) => match protocol_error {
+                ProtocolError::WrongHttpMethod => {
+                    panic!("incorrect method for WebSocket, should be GET")
+                }
+                _ => hyper::Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(Body::empty())
+                    .unwrap(),
+            },
         };
         Response {
             http: http_response,

@@ -1,6 +1,6 @@
 use crate::WebSocketUpgradable;
 use hyper::upgrade::Upgraded;
-use screw_core::DFnOnce;
+use screw_components::dyn_fn::DFnOnce;
 use tokio_tungstenite::tungstenite::error::ProtocolError;
 use tokio_tungstenite::WebSocketStream;
 

@@ -1,4 +1,4 @@
-use crate::server::responder::Responder;
+use super::Responder;
 use hyper::service::Service;
 use hyper::{Body, Request, Response};
 use std::convert::Infallible;
@@ -11,7 +11,7 @@ where
     R: Responder,
     R::ResponseFuture: 'static,
 {
-    pub(crate) responder: R,
+    pub(super) responder: R,
 }
 
 impl<R> Service<Request<Body>> for SessionService<R>
@@ -21,7 +21,7 @@ where
 {
     type Response = Response<Body>;
     type Error = Infallible;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send>>;
+    type Future = Pin<Box<dyn Future<Output = Result<Response<Body>, Infallible>> + Send>>;
 
     fn poll_ready(&mut self, _: &mut Context) -> Poll<Result<(), Self::Error>> {
         Poll::Ready(Ok(()))

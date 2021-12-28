@@ -4,11 +4,11 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+screw-components = { path = "../screw-components" }
 screw-core = { path = "../screw-core" }
 hyper = { version = "0.14.9", features = ["full"] }
 tokio = { version = "1.7.1", features = ["full"] }
 tokio-tungstenite = { version = "0.16.0" }
 async-trait = { version = "0.1.50" }
-futures = "0.3.18"
 futures-util = "0.3.18"
 

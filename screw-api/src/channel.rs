@@ -3,8 +3,8 @@ use futures::{SinkExt, StreamExt};
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::Upgraded;
-use screw_core::DFn;
-use screw_core::{DError, DResult};
+use screw_components::dyn_fn::DFn;
+use screw_components::dyn_result::{DError, DResult};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
 use std::net::SocketAddr;
@@ -79,18 +79,18 @@ where
 
         let message_string = converter(message)
             .await
-            .map_err(|e| ApiChannelSenderError::Convert(e.into()))?;
+            .map_err(ApiChannelSenderError::Convert)?;
         self.sink
             .send(Message::Text(message_string))
             .await
-            .map_err(|e| ApiChannelSenderError::Tungstenite(e))
+            .map_err(ApiChannelSenderError::Tungstenite)
     }
 
     pub async fn close(&mut self) -> Result<(), ApiChannelSenderError> {
         self.sink
             .send(Message::Close(None))
             .await
-            .map_err(|e| ApiChannelSenderError::Tungstenite(e))
+            .map_err(ApiChannelSenderError::Tungstenite)
     }
 }
 
@@ -152,7 +152,7 @@ where
                 Ok(message) => match message {
                     Message::Text(test) => converter(test)
                         .await
-                        .map_err(|e| ApiChannelReceiverError::Convert(e.into())),
+                        .map_err(ApiChannelReceiverError::Convert),
                     Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {
                         Err(ApiChannelReceiverError::UnsupportedMessage)
                     }

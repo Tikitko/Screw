@@ -1,5 +1,4 @@
-use crate::server::responder::Responder;
-use crate::server::session_service::SessionService;
+use super::{Responder, SessionService};
 use hyper::server::conn::AddrStream;
 use hyper::service::Service;
 use std::convert::Infallible;

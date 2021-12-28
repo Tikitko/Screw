@@ -4,6 +4,7 @@ version = "0.0.1"
 edition = "2021"
 
 [dependencies]
+screw-components = { path = "../screw-components" }
 screw-core = { path = "../screw-core" }
 hyper = { version = "0.14.9", features = ["http1", "http2"] }
 tokio-tungstenite = { version = "0.16.0" }

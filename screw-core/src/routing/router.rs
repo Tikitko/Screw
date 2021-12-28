@@ -1,4 +1,4 @@
-use crate::routing::{Handler, Request, Response};
+use super::{Handler, Request, Response};
 use hyper::Method;
 use std::collections::HashMap;
 
@@ -8,7 +8,7 @@ pub struct Router {
 }
 
 impl Router {
-    pub(crate) async fn process(&self, request: Request) -> Response {
+    pub(super) async fn process(&self, request: Request) -> Response {
         let method = request.http.method().clone();
         let path = {
             let mut path = request.http.uri().path().to_string();

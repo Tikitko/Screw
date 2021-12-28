@@ -1,4 +1,4 @@
-use crate::routing::Handler;
+use super::Handler;
 use hyper::Method;
 use std::collections::HashMap;
 

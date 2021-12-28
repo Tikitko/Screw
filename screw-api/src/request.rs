@@ -1,6 +1,6 @@
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
-use screw_core::DResult;
+use screw_components::dyn_result::DResult;
 use serde::Deserialize;
 use std::net::SocketAddr;
 use std::sync::Arc;

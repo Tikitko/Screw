@@ -1,6 +1,6 @@
-use super::{convert_generic_handler, Router, RoutesCollection};
-use crate::routing::router::RouteFinal;
-use crate::routing::{Handler, Request, Response};
+use super::{
+    convert_generic_handler, Handler, Request, Response, RouteFinal, Router, RoutesCollection,
+};
 use hyper::Method;
 use std::collections::HashMap;
 use std::future::Future;

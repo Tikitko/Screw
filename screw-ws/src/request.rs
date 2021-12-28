@@ -2,7 +2,7 @@ use crate::WebSocketResponse;
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::{OnUpgrade, Upgraded};
-use screw_core::DFn;
+use screw_components::dyn_fn::DFn;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::sync::Arc;
