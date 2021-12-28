@@ -47,7 +47,7 @@ where
     }
 }
 
-pub trait RoutesCollectionBuild<Rq, Rs, HFn, HFut, C>
+pub trait RoutesCollectionBuild<Rq, Rs, HFn, HFut>
 where
     Rq: Send + 'static,
     Rs: Send + 'static,
@@ -57,7 +57,7 @@ where
     fn route(self, route: RouteFinal<Rq, Rs, HFn, HFut>) -> Self;
 }
 
-impl<Rq, Rs, HFn, HFut, C> RoutesCollectionBuild<Rq, Rs, HFn, HFut, C>
+impl<Rq, Rs, HFn, HFut, C> RoutesCollectionBuild<Rq, Rs, HFn, HFut>
     for RoutesCollectionBuilderFinal<C>
 where
     Rq: Send + 'static,
