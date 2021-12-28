@@ -17,6 +17,6 @@ derive-error = { version = "0.0.5" }
 tokio-tungstenite = { version = "0.16.0", optional = true }
 
 [features]
-default = ["json_converter", "ws"]
+default = []
 json_converter = ["serde_json"]
-ws = ["screw-ws", "tokio-tungstenite", "futures"]
+ws = ["screw-ws", "tokio-tungstenite", "futures", "screw-api/ws"]
