@@ -1,6 +1,5 @@
 use async_trait::async_trait;
 use derive_error::Error;
-use hyper::header::ToStrError;
 use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
 use screw_api::{
@@ -22,12 +21,9 @@ impl JsonApiConverter {
 }
 
 #[derive(Error, Debug)]
-pub enum JsonApiRequestConvertError {
-    ContentTypeMissed,
-    ContentTypeIncorrect,
-    ToStr(ToStrError),
-    Hyper(hyper::Error),
-    SerdeJson(serde_json::Error),
+pub enum JsonApiRequestContentTypeError {
+    Missed,
+    Incorrect,
 }
 
 #[async_trait]
@@ -40,33 +36,22 @@ where
     RsContentFailure: ApiResponseContentFailure + Send + 'static,
 {
     async fn convert_request(&self, request: Request) -> ApiRequest<RqContent> {
-        async fn convert<Data>(
-            parts: &Parts,
-            body: Body,
-        ) -> Result<Data, JsonApiRequestConvertError>
+        async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
             for<'de> Data: Deserialize<'de>,
         {
             let content_type = match parts.headers.get(header::CONTENT_TYPE) {
-                Some(content_type) => Some(
-                    content_type
-                        .to_str()
-                        .map_err(JsonApiRequestConvertError::ToStr)?,
-                ),
+                Some(header_value) => Some(header_value.to_str()?),
                 None => None,
             };
             match content_type {
-                Some("application/json") => {
-                    let bytes = hyper::body::to_bytes(body)
-                        .await
-                        .map_err(JsonApiRequestConvertError::Hyper)?;
-                    let data = serde_json::from_slice(&bytes)
-                        .map_err(JsonApiRequestConvertError::SerdeJson)?;
-                    Ok(data)
-                }
-                Some("") | None => Err(JsonApiRequestConvertError::ContentTypeMissed),
-                Some(_) => Err(JsonApiRequestConvertError::ContentTypeIncorrect),
-            }
+                Some("application/json") => Ok(()),
+                Some("") | None => Err(JsonApiRequestContentTypeError::Missed),
+                Some(_) => Err(JsonApiRequestContentTypeError::Incorrect),
+            }?;
+            let bytes = hyper::body::to_bytes(body).await?;
+            let data = serde_json::from_slice(&bytes)?;
+            Ok(data)
         }
 
         let (http_parts, http_body) = request.http.into_parts();
@@ -76,7 +61,7 @@ where
             http_parts,
             remote_addr: request.remote_addr,
             extensions: request.extensions,
-            data_result: data_result.map_err(|e| e.into()),
+            data_result,
         });
 
         ApiRequest {
@@ -91,16 +76,16 @@ where
             let content = api_response.content;
 
             let status_code = content.status_code();
-            let json_bytes_vec = if self.pretty_printed {
-                serde_json::to_vec_pretty(&content)?
+            let json_bytes = if self.pretty_printed {
+                serde_json::to_vec_pretty(&content)
             } else {
-                serde_json::to_vec(&content)?
-            };
+                serde_json::to_vec(&content)
+            }?;
 
             let response = hyper::Response::builder()
                 .status(status_code)
                 .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(json_bytes_vec))?;
+                .body(Body::from(json_bytes))?;
 
             Ok(response)
         })();
@@ -142,19 +127,23 @@ pub mod ws {
             let (sink, stream) = stream.split();
             let pretty_printed = self.pretty_printed;
 
-            let sender = ApiChannelSender::with_sink(sink).and_converter(move |message| {
-                let serde_result = if pretty_printed {
-                    serde_json::to_string_pretty(&message)
-                } else {
-                    serde_json::to_string(&message)
-                };
-                future::ready(serde_result.map_err(|e| e.into()))
-            });
+            let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
+                move |typed_message| {
+                    let generic_message_result = if pretty_printed {
+                        serde_json::to_string_pretty(&typed_message)
+                    } else {
+                        serde_json::to_string(&typed_message)
+                    };
+                    future::ready(generic_message_result.map_err(|e| e.into()))
+                },
+            );
 
-            let receiver = ApiChannelReceiver::with_stream(stream).and_converter(|message| {
-                let serde_result = serde_json::from_str(message.as_str());
-                future::ready(serde_result.map_err(|e| e.into()))
-            });
+            let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
+                |generic_message| {
+                    let typed_message_result = serde_json::from_str(generic_message.as_str());
+                    future::ready(typed_message_result.map_err(|e| e.into()))
+                },
+            );
 
             ApiChannel { sender, receiver }
         }

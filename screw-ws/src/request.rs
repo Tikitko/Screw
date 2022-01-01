@@ -29,26 +29,26 @@ where
     Stream: Send + Sync + 'static,
 {
     pub(super) upgradable_result: Result<WebSocketUpgradable, ProtocolError>,
-    pub(super) stream_converter: DFn<WebSocketStream<Upgraded>, Stream>,
+    pub(super) convert_stream_fn: DFn<WebSocketStream<Upgraded>, Stream>,
 }
 
 impl<Stream> WebSocketUpgrade<Stream>
 where
     Stream: Send + Sync + 'static,
 {
-    pub fn on<F, U>(self, upgraded_handler: F) -> WebSocketResponse
+    pub fn on<F, U>(self, upgraded_fn: F) -> WebSocketResponse
     where
         F: FnOnce(Stream) -> U + Send + Sync + 'static,
         U: Future<Output = ()> + Send + 'static,
     {
-        let stream_converter = Arc::new(self.stream_converter);
+        let convert_stream_fn = Arc::new(self.convert_stream_fn);
         WebSocketResponse {
             upgradable_result: self.upgradable_result,
-            upgraded_handler: Box::new(move |generic_stream| {
-                let stream_converter = stream_converter.clone();
+            upgraded_fn: Box::new(move |generic_stream| {
+                let convert_stream_fn = convert_stream_fn.clone();
                 Box::pin(async move {
-                    let stream = stream_converter(generic_stream).await;
-                    upgraded_handler(stream).await;
+                    let stream = convert_stream_fn(generic_stream).await;
+                    upgraded_fn(stream).await;
                 })
             }),
         }

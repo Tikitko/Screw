@@ -138,7 +138,7 @@ where
         let stream_converter = self.stream_converter.clone();
         let request_upgrade = WebSocketUpgrade {
             upgradable_result,
-            stream_converter: Box::new(move |generic_stream| {
+            convert_stream_fn: Box::new(move |generic_stream| {
                 let stream_converter = stream_converter.clone();
                 Box::pin(async move {
                     let stream = stream_converter.convert_stream(generic_stream).await;
@@ -162,7 +162,7 @@ where
                     .and_then(move |upgraded| {
                         WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
                     })
-                    .and_then(move |stream| (response.upgraded_handler)(stream).map(Ok));
+                    .and_then(move |stream| (response.upgraded_fn)(stream).map(Ok));
 
                 task::spawn(future);
 

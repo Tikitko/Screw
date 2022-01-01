@@ -45,19 +45,25 @@ impl ApiChannelSender {
         Self { sink }
     }
 
-    pub fn and_converter<Send, HFn, HFut>(self, converter: HFn) -> ApiChannelSenderFinal<Send>
+    pub fn and_convert_typed_message_fn<Send, HFn, HFut>(
+        self,
+        convert_typed_message_fn: HFn,
+    ) -> ApiChannelSenderFinal<Send>
     where
         Send: Serialize + std::marker::Send + 'static,
         HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
     {
-        let converter = Arc::new(converter);
+        let convert_typed_message_fn = Arc::new(convert_typed_message_fn);
         ApiChannelSenderFinal {
-            converter: Box::new(move |message| {
-                let converter = converter.clone();
-                Box::pin(async move { converter(message).await })
-            }),
             sink: self.sink,
+            convert_typed_message_fn: Box::new(move |typed_message| {
+                let convert_typed_message_fn = convert_typed_message_fn.clone();
+                Box::pin(async move {
+                    let generic_message_result = convert_typed_message_fn(typed_message).await;
+                    generic_message_result
+                })
+            }),
         }
     }
 }
@@ -66,24 +72,25 @@ pub struct ApiChannelSenderFinal<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    converter: DFn<Send, DResult<String>>,
     sink: SplitSink<WebSocketStream<Upgraded>, Message>,
+    convert_typed_message_fn: DFn<Send, DResult<String>>,
 }
 
 impl<Send> ApiChannelSenderFinal<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    pub async fn send(&mut self, message: Send) -> Result<(), ApiChannelSenderError> {
-        let converter = &self.converter;
+    pub async fn send(&mut self, typed_message: Send) -> Result<(), ApiChannelSenderError> {
+        let convert_typed_message_fn = &self.convert_typed_message_fn;
 
-        let message_string = converter(message)
+        let generic_message = convert_typed_message_fn(typed_message)
             .await
             .map_err(ApiChannelSenderError::Convert)?;
         self.sink
-            .send(Message::Text(message_string))
+            .send(Message::Text(generic_message))
             .await
-            .map_err(ApiChannelSenderError::Tungstenite)
+            .map_err(ApiChannelSenderError::Tungstenite)?;
+        Ok(())
     }
 
     pub async fn close(&mut self) -> Result<(), ApiChannelSenderError> {
@@ -111,22 +118,25 @@ impl ApiChannelReceiver {
         Self { stream }
     }
 
-    pub fn and_converter<Receive, HFn, HFut>(
+    pub fn and_convert_generic_message_fn<Receive, HFn, HFut>(
         self,
-        converter: HFn,
+        convert_generic_message_fn: HFn,
     ) -> ApiChannelReceiverFinal<Receive>
     where
         for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
         HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
     {
-        let converter = Arc::new(converter);
+        let convert_generic_message_fn = Arc::new(convert_generic_message_fn);
         ApiChannelReceiverFinal {
-            converter: Box::new(move |message| {
-                let converter = converter.clone();
-                Box::pin(async move { converter(message).await })
-            }),
             stream: self.stream,
+            convert_generic_message_fn: Box::new(move |generic_message| {
+                let convert_generic_message_fn = convert_generic_message_fn.clone();
+                Box::pin(async move {
+                    let typed_message_result = convert_generic_message_fn(generic_message).await;
+                    typed_message_result
+                })
+            }),
         }
     }
 }
@@ -136,30 +146,32 @@ where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
     stream: SplitStream<WebSocketStream<Upgraded>>,
-    converter: DFn<String, DResult<Receive>>,
+    convert_generic_message_fn: DFn<String, DResult<Receive>>,
 }
 
 impl<Receive> ApiChannelReceiverFinal<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
-    pub async fn next_message(&mut self) -> Result<Receive, ApiChannelReceiverError> {
-        let converter = &self.converter;
+    pub async fn receive(&mut self) -> Result<Receive, ApiChannelReceiverError> {
+        let convert_generic_message_fn = &self.convert_generic_message_fn;
 
-        match self.stream.next().await {
-            None => Err(ApiChannelReceiverError::NoMessage),
-            Some(message_result) => match message_result {
-                Ok(message) => match message {
-                    Message::Text(test) => converter(test)
-                        .await
-                        .map_err(ApiChannelReceiverError::Convert),
-                    Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {
-                        Err(ApiChannelReceiverError::UnsupportedMessage)
-                    }
-                    Message::Close(_) => Err(ApiChannelReceiverError::Closed),
-                },
-                Err(e) => Err(ApiChannelReceiverError::Tungstenite(e)),
-            },
-        }
+        let message_type_result = self
+            .stream
+            .next()
+            .await
+            .ok_or(ApiChannelReceiverError::NoMessage)?;
+        let message_type = message_type_result.map_err(ApiChannelReceiverError::Tungstenite)?;
+        let generic_message = match message_type {
+            Message::Text(generic_message) => Ok(generic_message),
+            Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {
+                Err(ApiChannelReceiverError::UnsupportedMessage)
+            }
+            Message::Close(_) => Err(ApiChannelReceiverError::Closed),
+        }?;
+        let typed_message = convert_generic_message_fn(generic_message)
+            .await
+            .map_err(ApiChannelReceiverError::Convert)?;
+        Ok(typed_message)
     }
 }

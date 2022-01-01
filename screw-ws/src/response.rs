@@ -6,5 +6,5 @@ use tokio_tungstenite::WebSocketStream;
 
 pub struct WebSocketResponse {
     pub(super) upgradable_result: Result<WebSocketUpgradable, ProtocolError>,
-    pub(super) upgraded_handler: DFnOnce<WebSocketStream<Upgraded>, ()>,
+    pub(super) upgraded_fn: DFnOnce<WebSocketStream<Upgraded>, ()>,
 }
