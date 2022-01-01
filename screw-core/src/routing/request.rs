@@ -8,3 +8,9 @@ pub struct Request {
     pub extensions: Arc<Extensions>,
     pub http: hyper::Request<Body>,
 }
+
+impl AsRef<hyper::Request<Body>> for Request {
+    fn as_ref(&self) -> &hyper::Request<Body> {
+        &self.http
+    }
+}

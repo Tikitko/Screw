@@ -125,7 +125,12 @@ where
     Content: WebSocketContent + Send + 'static,
     Stream: Send + Sync + 'static,
 {
-    async fn convert_request(&self, mut request: Request) -> WebSocketRequest<Content, Stream> {
+    type Request = Request;
+    type Response = Response;
+    async fn convert_request(
+        &self,
+        mut request: Self::Request,
+    ) -> WebSocketRequest<Content, Stream> {
         let upgradable_result = try_upgradable(&mut request.http);
         let (http_parts, _) = request.http.into_parts();
 
@@ -152,7 +157,7 @@ where
             upgrade: request_upgrade,
         }
     }
-    async fn convert_response(&self, response: WebSocketResponse) -> Response {
+    async fn convert_response(&self, response: WebSocketResponse) -> Self::Response {
         let http_response = match response.upgradable_result {
             Ok(upgradable) => {
                 let config = self.config;

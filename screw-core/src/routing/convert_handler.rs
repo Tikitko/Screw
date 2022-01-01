@@ -1,11 +1,14 @@
-use super::{Handler, Request, RequestResponseConverter, Response};
+use super::RequestResponseConverter;
+use screw_components::dyn_fn::DFn;
 use std::future::Future;
 use std::sync::Arc;
 
-pub(super) fn convert_generic_handler<HFn, HFut>(handler: HFn) -> Handler
+pub(super) fn convert_generic_handler<ORq, ORs, HFn, HFut>(handler: HFn) -> DFn<ORq, ORs>
 where
-    HFn: Fn(Request) -> HFut + Send + Sync + 'static,
-    HFut: Future<Output = Response> + Send + 'static,
+    ORq: Send + 'static,
+    ORs: Send + 'static,
+    HFn: Fn(ORq) -> HFut + Send + Sync + 'static,
+    HFut: Future<Output = ORs> + Send + 'static,
 {
     let handler = Arc::new(handler);
     Box::new(move |request| {
@@ -17,12 +20,14 @@ where
     })
 }
 
-pub(super) fn convert_typed_handler<C, Rq, Rs, HFn, HFut>(
+pub(super) fn convert_typed_handler<ORq, ORs, C, Rq, Rs, HFn, HFut>(
     converter: Arc<C>,
     handler: HFn,
-) -> Handler
+) -> DFn<ORq, ORs>
 where
-    C: RequestResponseConverter<Rq, Rs> + Send + Sync + 'static,
+    ORq: Send + 'static,
+    ORs: Send + 'static,
+    C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs> + Send + Sync + 'static,
     Rq: Send + 'static,
     Rs: Send + 'static,
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,

@@ -1,6 +1,5 @@
 mod convert_handler;
 mod default_types;
-mod handler;
 mod request;
 mod request_response_converter;
 mod response;
@@ -13,7 +12,6 @@ mod routes_collection_builder;
 
 use convert_handler::*;
 pub use default_types::*;
-pub use handler::*;
 pub use request::*;
 pub use request_response_converter::*;
 pub use response::*;
@@ -26,7 +24,7 @@ pub use routes_collection_builder::*;
 
 pub fn routable_server_service(
     extensions: hyper::http::Extensions,
-    router: crate::routing::Router,
+    router: crate::routing::Router<crate::routing::Request, crate::routing::Response>,
 ) -> impl for<'a> hyper::service::Service<
     &'a hyper::server::conn::AddrStream,
     Error = std::convert::Infallible,

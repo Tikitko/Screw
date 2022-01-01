@@ -35,7 +35,9 @@ where
     RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
     RsContentFailure: ApiResponseContentFailure + Send + 'static,
 {
-    async fn convert_request(&self, request: Request) -> ApiRequest<RqContent> {
+    type Request = Request;
+    type Response = Response;
+    async fn convert_request(&self, request: Self::Request) -> ApiRequest<RqContent> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
             for<'de> Data: Deserialize<'de>,
@@ -71,7 +73,7 @@ where
     async fn convert_response(
         &self,
         api_response: ApiResponse<RsContentSuccess, RsContentFailure>,
-    ) -> Response {
+    ) -> Self::Response {
         let http_response_result: DResult<hyper::Response<Body>> = (|| {
             let content = api_response.content;
 

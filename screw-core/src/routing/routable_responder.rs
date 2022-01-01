@@ -1,4 +1,4 @@
-use super::{Request, Router};
+use super::{Request, Response, Router};
 use crate::server::Responder;
 use hyper::http::Extensions;
 use hyper::Body;
@@ -10,7 +10,7 @@ use std::sync::Arc;
 pub struct RoutableResponder {
     pub(super) remote_addr: SocketAddr,
     pub(super) extensions: Arc<Extensions>,
-    pub(super) router: Arc<Router>,
+    pub(super) router: Arc<Router<Request, Response>>,
 }
 
 impl Responder for RoutableResponder {
