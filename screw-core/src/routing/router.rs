@@ -38,3 +38,96 @@ where
         response
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use hyper::{Body, Response, StatusCode};
+
+    struct Rq(Request<Body>);
+    impl Rq {
+        fn with_path(path: &str) -> Rq {
+            let http_request = Request::get(path).body(Body::empty()).unwrap();
+            Rq(http_request)
+        }
+    }
+    impl AsRef<Request<Body>> for Rq {
+        fn as_ref(&self) -> &Request<Body> {
+            &self.0
+        }
+    }
+
+    struct Rs(Response<Body>);
+    impl Rs {
+        fn with_status(status: StatusCode) -> Rs {
+            let http_response = Response::builder()
+                .status(status)
+                .body(Body::empty())
+                .unwrap();
+            Rs(http_response)
+        }
+        fn status(&self) -> StatusCode {
+            self.0.status()
+        }
+    }
+
+    fn create_handler_with_status(status: StatusCode) -> DFn<Rq, Rs> {
+        Box::new(move |_| Box::pin(async move { Rs::with_status(status) }))
+    }
+
+    #[tokio::test]
+    async fn test_router_process() {
+        let router = Router {
+            handlers: {
+                let mut handlers = HashMap::new();
+                handlers.insert(
+                    (Method::GET, "/".to_string()),
+                    create_handler_with_status(StatusCode::GONE),
+                );
+                handlers.insert(
+                    (Method::GET, "/r1".to_string()),
+                    create_handler_with_status(StatusCode::ACCEPTED),
+                );
+                handlers.insert(
+                    (Method::GET, "/r2/t1".to_string()),
+                    create_handler_with_status(StatusCode::OK),
+                );
+                handlers
+            },
+            fallback_handler: create_handler_with_status(StatusCode::INTERNAL_SERVER_ERROR),
+        };
+
+        assert_eq!(
+            router.process(Rq::with_path("/")).await.status(),
+            StatusCode::GONE
+        );
+        assert_eq!(
+            router.process(Rq::with_path("///")).await.status(),
+            StatusCode::GONE
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/r1")).await.status(),
+            StatusCode::ACCEPTED
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/r1/")).await.status(),
+            StatusCode::ACCEPTED
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/r1//")).await.status(),
+            StatusCode::ACCEPTED
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/r2/t1")).await.status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/r2/t1/")).await.status(),
+            StatusCode::OK
+        );
+        assert_eq!(
+            router.process(Rq::with_path("/some")).await.status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+}

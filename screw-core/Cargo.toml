@@ -7,3 +7,6 @@ edition = "2021"
 screw-components = { path = "../screw-components" }
 hyper = { version = "0.14.9", features = ["full"] }
 async-trait = { version = "0.1.50" }
+
+[dev-dependencies]
+tokio = { version = "1.7.1", features = ["full"] }
