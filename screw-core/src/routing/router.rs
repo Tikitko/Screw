@@ -129,5 +129,9 @@ mod tests {
             router.process(Rq::with_path("/some")).await.status(),
             StatusCode::INTERNAL_SERVER_ERROR
         );
+        assert_eq!(
+            router.process(Rq::with_path("/some//")).await.status(),
+            StatusCode::INTERNAL_SERVER_ERROR
+        );
     }
 }
