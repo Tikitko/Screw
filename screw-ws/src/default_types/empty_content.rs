@@ -1,4 +1,4 @@
-use crate::{WebSocketContent, WebSocketOriginContent};
+use super::{WebSocketContent, WebSocketOriginContent};
 
 struct EmptyWebSocketContent;
 

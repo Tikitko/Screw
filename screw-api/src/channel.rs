@@ -3,7 +3,7 @@ use futures::{SinkExt, StreamExt};
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::Upgraded;
-use screw_components::dyn_fn::DFn;
+use screw_components::dyn_fn::{AsDynFn, DFn};
 use screw_components::dyn_result::{DError, DResult};
 use serde::{Deserialize, Serialize};
 use std::future::Future;
@@ -54,16 +54,9 @@ impl ApiChannelSender {
         HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
     {
-        let convert_typed_message_fn = Arc::new(convert_typed_message_fn);
         ApiChannelSenderFinal {
             sink: self.sink,
-            convert_typed_message_fn: Box::new(move |typed_message| {
-                let convert_typed_message_fn = convert_typed_message_fn.clone();
-                Box::pin(async move {
-                    let generic_message_result = convert_typed_message_fn(typed_message).await;
-                    generic_message_result
-                })
-            }),
+            convert_typed_message_fn: convert_typed_message_fn.to_dyn_fn(),
         }
     }
 }
@@ -127,16 +120,9 @@ impl ApiChannelReceiver {
         HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
     {
-        let convert_generic_message_fn = Arc::new(convert_generic_message_fn);
         ApiChannelReceiverFinal {
             stream: self.stream,
-            convert_generic_message_fn: Box::new(move |generic_message| {
-                let convert_generic_message_fn = convert_generic_message_fn.clone();
-                Box::pin(async move {
-                    let typed_message_result = convert_generic_message_fn(generic_message).await;
-                    typed_message_result
-                })
-            }),
+            convert_generic_message_fn: convert_generic_message_fn.to_dyn_fn(),
         }
     }
 }

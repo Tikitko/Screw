@@ -1,4 +1,4 @@
-use crate::{ApiResponseContentBase, ApiResponseContentFailure, ApiResponseContentSuccess};
+use super::{ApiResponseContentBase, ApiResponseContentFailure, ApiResponseContentSuccess};
 use hyper::StatusCode;
 
 pub enum UnreachableApiResponseContent {}

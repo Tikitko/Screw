@@ -1,4 +1,4 @@
-use crate::{ApiRequestContent, ApiRequestOriginContent};
+use super::{ApiRequestContent, ApiRequestOriginContent};
 
 pub struct EmptyApiRequestContent;
 

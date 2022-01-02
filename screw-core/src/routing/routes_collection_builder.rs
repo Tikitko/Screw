@@ -1,5 +1,5 @@
-use super::{convert_typed_handler, RequestResponseConverter, RouteFinal, RoutesCollection};
-use hyper::Method;
+use super::{RequestResponseConverter, RouteFinal, RoutesCollection};
+use hyper::{Body, Method, Request};
 use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
 use std::future::Future;
@@ -19,7 +19,7 @@ impl RoutesCollectionBuilder {
         converter: C,
     ) -> RoutesCollectionBuilderFinal<ORq, ORs, C>
     where
-        ORq: Send + 'static,
+        ORq: AsRef<Request<Body>> + Send + 'static,
         ORs: Send + 'static,
         C: Send + Sync + 'static,
     {
@@ -33,7 +33,7 @@ impl RoutesCollectionBuilder {
 
 pub struct RoutesCollectionBuilderFinal<ORq, ORs, C>
 where
-    ORq: Send + 'static,
+    ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
     C: Send + Sync + 'static,
 {
@@ -44,7 +44,7 @@ where
 
 impl<ORq, ORs, C> RoutesCollectionBuilderFinal<ORq, ORs, C>
 where
-    ORq: Send + 'static,
+    ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
     C: Send + Sync + 'static,
 {
@@ -68,7 +68,7 @@ where
 impl<ORq, ORs, C, Rq, Rs, HFn, HFut> RoutesCollectionBuild<Rq, Rs, HFn, HFut>
     for RoutesCollectionBuilderFinal<ORq, ORs, C>
 where
-    ORq: Send + 'static,
+    ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
     C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs> + Send + Sync + 'static,
     Rq: Send + 'static,
@@ -77,12 +77,24 @@ where
     HFut: Future<Output = Rs> + Send + 'static,
 {
     fn route(mut self, route: RouteFinal<Rq, Rs, HFn, HFut>) -> Self {
+        let handler = Arc::new(route.handler);
+        let converter = self.converter.clone();
         self.handlers.insert(
             (
                 route.method.clone(),
                 format!("{}{}", self.scope_path, route.path),
             ),
-            convert_typed_handler(self.converter.clone(), route.handler),
+            Box::new(move |request| {
+                let handler = handler.clone();
+                let converter = converter.clone();
+                Box::pin(async move {
+                    let handler_request = converter.convert_request(request).await;
+                    let handler_future = handler(handler_request);
+                    let handler_response = handler_future.await;
+                    let response = converter.convert_response(handler_response).await;
+                    response
+                })
+            }),
         );
         self
     }

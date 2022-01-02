@@ -1,6 +1,6 @@
-use super::{convert_generic_handler, RouteFinal, Router, RoutesCollection};
+use super::{RouteFinal, Router, RoutesCollection};
 use hyper::{Body, Method, Request};
-use screw_components::dyn_fn::DFn;
+use screw_components::dyn_fn::{AsDynFn, DFn};
 use std::collections::HashMap;
 use std::future::Future;
 
@@ -25,7 +25,7 @@ where
     {
         RouterBuilder {
             handlers: Default::default(),
-            fallback_handler: convert_generic_handler(fallback_handler),
+            fallback_handler: fallback_handler.to_dyn_fn(),
         }
     }
 
@@ -36,7 +36,7 @@ where
     {
         self.handlers.insert(
             (route.method.clone(), route.path.to_string()),
-            convert_generic_handler(route.handler),
+            route.handler.to_dyn_fn(),
         );
         self
     }
