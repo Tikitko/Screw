@@ -14,7 +14,7 @@ impl<ORq, ORs> Router<ORq, ORs>
 where
     ORq: AsRef<Request<Body>>,
 {
-    pub(super) async fn process(&self, request: ORq) -> ORs {
+    pub async fn process(&self, request: ORq) -> ORs {
         let http_request_ref = request.as_ref();
 
         let method = http_request_ref.method().clone();

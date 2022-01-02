@@ -1,4 +1,4 @@
-use crate::routing::{Request, Response};
+use super::{Request, Response};
 use hyper::{Body, StatusCode};
 
 pub async fn default_fallback_handler(_request: Request) -> Response {

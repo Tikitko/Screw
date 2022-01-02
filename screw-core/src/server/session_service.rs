@@ -9,7 +9,7 @@ use std::task::{Context, Poll};
 pub struct SessionService<R>
 where
     R: Responder,
-    R::ResponseFuture: 'static,
+    R::ResponseFuture: Send + 'static,
 {
     pub(super) responder: R,
 }
@@ -17,7 +17,7 @@ where
 impl<R> Service<Request<Body>> for SessionService<R>
 where
     R: Responder,
-    R::ResponseFuture: 'static,
+    R::ResponseFuture: Send + 'static,
 {
     type Response = Response<Body>;
     type Error = Infallible;

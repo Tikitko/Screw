@@ -1,36 +1,35 @@
-use super::{Responder, SessionService};
+use super::{Responder, SessionService, RespondersFactory};
 use hyper::server::conn::AddrStream;
 use hyper::service::Service;
 use std::convert::Infallible;
 use std::future::{ready, Ready};
-use std::net::SocketAddr;
 use std::task::{Context, Poll};
 
 pub struct ServerService<F, R>
 where
-    F: Fn(SocketAddr) -> R,
+    F: RespondersFactory<Responder = R>,
     R: Responder,
-    R::ResponseFuture: 'static,
+    R::ResponseFuture: Send + 'static,
 {
-    make_responder_fn: F,
+    responders_factory: F,
 }
 
 impl<F, R> ServerService<F, R>
 where
-    F: Fn(SocketAddr) -> R,
+    F: RespondersFactory<Responder = R>,
     R: Responder,
-    R::ResponseFuture: 'static,
+    R::ResponseFuture: Send + 'static,
 {
-    pub fn with_make_responder_fn(make_responder_fn: F) -> Self {
-        Self { make_responder_fn }
+    pub fn with_responders_factory(responders_factory: F) -> Self {
+        Self { responders_factory }
     }
 }
 
 impl<F, R> Service<&AddrStream> for ServerService<F, R>
 where
-    F: Fn(SocketAddr) -> R,
+    F: RespondersFactory<Responder = R>,
     R: Responder,
-    R::ResponseFuture: 'static,
+    R::ResponseFuture: Send + 'static,
 {
     type Response = SessionService<R>;
     type Error = Infallible;
@@ -42,7 +41,7 @@ where
 
     fn call(&mut self, addr_stream: &AddrStream) -> Self::Future {
         let remote_addr = addr_stream.remote_addr();
-        let responder = (self.make_responder_fn)(remote_addr);
+        let responder = self.responders_factory.make_responder(remote_addr);
         let session_service = SessionService { responder };
 
         ready(Ok(session_service))
