@@ -1,4 +1,4 @@
-use super::{Responder, SessionService, RespondersFactory};
+use super::{Responder, ResponderFactory, SessionService};
 use hyper::server::conn::AddrStream;
 use hyper::service::Service;
 use std::convert::Infallible;
@@ -7,27 +7,27 @@ use std::task::{Context, Poll};
 
 pub struct ServerService<F, R>
 where
-    F: RespondersFactory<Responder = R>,
+    F: ResponderFactory<Responder = R>,
     R: Responder,
     R::ResponseFuture: Send + 'static,
 {
-    responders_factory: F,
+    responder_factory: F,
 }
 
 impl<F, R> ServerService<F, R>
 where
-    F: RespondersFactory<Responder = R>,
+    F: ResponderFactory<Responder = R>,
     R: Responder,
     R::ResponseFuture: Send + 'static,
 {
-    pub fn with_responders_factory(responders_factory: F) -> Self {
-        Self { responders_factory }
+    pub fn with_responder_factory(responder_factory: F) -> Self {
+        Self { responder_factory }
     }
 }
 
 impl<F, R> Service<&AddrStream> for ServerService<F, R>
 where
-    F: RespondersFactory<Responder = R>,
+    F: ResponderFactory<Responder = R>,
     R: Responder,
     R::ResponseFuture: Send + 'static,
 {
@@ -41,7 +41,7 @@ where
 
     fn call(&mut self, addr_stream: &AddrStream) -> Self::Future {
         let remote_addr = addr_stream.remote_addr();
-        let responder = self.responders_factory.make_responder(remote_addr);
+        let responder = self.responder_factory.make_responder(remote_addr);
         let session_service = SessionService { responder };
 
         ready(Ok(session_service))

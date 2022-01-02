@@ -8,31 +8,31 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
-pub struct RespondersFactory {
+pub struct ResponderFactory {
     router: Arc<routing::Router<Request, Response>>,
 }
 
-impl RespondersFactory {
+impl ResponderFactory {
     pub fn with_router(router: routing::Router<Request, Response>) -> Self {
         Self {
             router: Arc::new(router),
         }
     }
 
-    pub fn and_extensions(self, extensions: Extensions) -> RespondersFactoryFinal {
-        RespondersFactoryFinal {
+    pub fn and_extensions(self, extensions: Extensions) -> ResponderFactoryFinal {
+        ResponderFactoryFinal {
             router: self.router,
             extensions: Arc::new(extensions),
         }
     }
 }
 
-pub struct RespondersFactoryFinal {
+pub struct ResponderFactoryFinal {
     router: Arc<routing::Router<Request, Response>>,
     extensions: Arc<Extensions>,
 }
 
-impl server::RespondersFactory for RespondersFactoryFinal {
+impl server::ResponderFactory for ResponderFactoryFinal {
     type Responder = Responder;
     fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {
         Responder {
