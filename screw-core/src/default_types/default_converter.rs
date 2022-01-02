@@ -1,5 +1,5 @@
 use super::{Request, Response};
-use crate::routing::RequestResponseConverter;
+use super::routing::RequestResponseConverter;
 use async_trait::async_trait;
 
 pub struct DefaultConverter;
