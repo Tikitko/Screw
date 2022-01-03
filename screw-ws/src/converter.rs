@@ -1,4 +1,4 @@
-use crate::{
+use super::{
     WebSocketContent, WebSocketOriginContent, WebSocketRequest, WebSocketResponse,
     WebSocketStreamConverter, WebSocketUpgradable, WebSocketUpgrade,
 };

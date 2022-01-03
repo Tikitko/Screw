@@ -108,13 +108,12 @@ where
 
 #[cfg(feature = "ws")]
 pub mod ws {
-    use super::JsonApiConverter;
-    use async_trait::async_trait;
+    use super::*;
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
     use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
     use screw_ws::WebSocketStreamConverter;
-    use serde::{Deserialize, Serialize};
+    use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
 
     #[async_trait]

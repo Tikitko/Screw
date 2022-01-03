@@ -1,4 +1,4 @@
-use crate::WebSocketResponse;
+use super::WebSocketResponse;
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::{OnUpgrade, Upgraded};
