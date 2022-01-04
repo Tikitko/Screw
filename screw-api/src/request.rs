@@ -20,6 +20,11 @@ pub trait ApiRequestContent {
     fn create(origin_content: ApiRequestOriginContent<Self::Data>) -> Self;
 }
 
+impl ApiRequestContent for () {
+    type Data = ();
+    fn create(_origin_content: ApiRequestOriginContent<Self::Data>) -> Self {}
+}
+
 pub struct ApiRequest<Content>
 where
     Content: ApiRequestContent,

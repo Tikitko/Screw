@@ -1,9 +1,16 @@
 use hyper::StatusCode;
 use serde::ser::SerializeStructVariant;
 use serde::{Serialize, Serializer};
+use std::convert::Infallible;
 
 pub trait ApiResponseContentBase {
     fn status_code(&self) -> &'static StatusCode;
+}
+
+impl ApiResponseContentBase for Infallible {
+    fn status_code(&self) -> &'static StatusCode {
+        unreachable!()
+    }
 }
 
 pub trait ApiResponseContentSuccess: ApiResponseContentBase {
@@ -13,9 +20,31 @@ pub trait ApiResponseContentSuccess: ApiResponseContentBase {
     fn data(&self) -> &Self::Data;
 }
 
+impl ApiResponseContentSuccess for Infallible {
+    type Data = ();
+    fn identifier(&self) -> &'static str {
+        unreachable!()
+    }
+    fn description(&self) -> Option<String> {
+        unreachable!()
+    }
+    fn data(&self) -> &Self::Data {
+        unreachable!()
+    }
+}
+
 pub trait ApiResponseContentFailure: ApiResponseContentBase {
     fn identifier(&self) -> &'static str;
     fn reason(&self) -> Option<String>;
+}
+
+impl ApiResponseContentFailure for Infallible {
+    fn identifier(&self) -> &'static str {
+        unreachable!()
+    }
+    fn reason(&self) -> Option<String> {
+        unreachable!()
+    }
 }
 
 pub enum ApiResponseContent<Success, Failure>

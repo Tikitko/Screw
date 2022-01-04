@@ -19,6 +19,10 @@ pub trait WebSocketContent {
     fn create(origin_content: WebSocketOriginContent) -> Self;
 }
 
+impl WebSocketContent for () {
+    fn create(_origin_content: WebSocketOriginContent) -> Self {}
+}
+
 pub(super) struct WebSocketUpgradable {
     pub(super) on_upgrade: OnUpgrade,
     pub(super) key: String,
