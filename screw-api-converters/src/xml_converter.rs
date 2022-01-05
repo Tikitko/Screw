@@ -1,7 +1,7 @@
 use super::ApiRequestContentTypeError;
 use async_trait::async_trait;
 use hyper::http::request::Parts;
-use hyper::{header, Body, StatusCode};
+use hyper::{body, header, Body, StatusCode};
 use screw_api::{
     ApiRequest, ApiRequestContent, ApiRequestOriginContent, ApiResponse, ApiResponseContentBase,
     ApiResponseContentFailure, ApiResponseContentSuccess,
@@ -12,20 +12,12 @@ use screw_core::{Request, Response};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug)]
-pub struct JsonApiConverter {
-    pretty_printed: bool,
-}
-
-impl JsonApiConverter {
-    pub fn with_pretty_printed(pretty_printed: bool) -> Self {
-        Self { pretty_printed }
-    }
-}
+pub struct XmlApiConverter;
 
 #[async_trait]
 impl<RqContent, RsContentSuccess, RsContentFailure>
     RequestResponseConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
-    for JsonApiConverter
+    for XmlApiConverter
 where
     RqContent: ApiRequestContent + Send + 'static,
     RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
@@ -33,6 +25,7 @@ where
 {
     type Request = Request;
     type Response = Response;
+
     async fn convert_request(&self, request: Self::Request) -> ApiRequest<RqContent> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
@@ -43,12 +36,13 @@ where
                 None => None,
             };
             match content_type {
-                Some("application/json") => Ok(()),
+                Some("application/xml") => Ok(()),
                 Some("") | None => Err(ApiRequestContentTypeError::Missed),
                 Some(_) => Err(ApiRequestContentTypeError::Incorrect),
             }?;
-            let bytes = hyper::body::to_bytes(body).await?;
-            let data = serde_json::from_slice(&bytes)?;
+            let bytes = body::to_bytes(body).await?;
+            let string = String::from_utf8(bytes.to_vec())?;
+            let data = serde_xml_rs::from_str(string.as_str())?;
             Ok(data)
         }
 
@@ -74,16 +68,12 @@ where
             let content = api_response.content;
 
             let status_code = content.status_code();
-            let json_bytes = if self.pretty_printed {
-                serde_json::to_vec_pretty(&content)
-            } else {
-                serde_json::to_vec(&content)
-            }?;
+            let xml_string = serde_xml_rs::to_string(&content)?;
 
             let response = hyper::Response::builder()
                 .status(status_code)
-                .header(header::CONTENT_TYPE, "application/json")
-                .body(Body::from(json_bytes))?;
+                .header(header::CONTENT_TYPE, "application/xml")
+                .body(Body::from(xml_string))?;
 
             Ok(response)
         })();
@@ -112,7 +102,7 @@ pub mod ws {
     use tokio_tungstenite::WebSocketStream;
 
     #[async_trait]
-    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>> for JsonApiConverter
+    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>> for XmlApiConverter
     where
         Send: Serialize + std::marker::Send + 'static,
         Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
@@ -122,22 +112,17 @@ pub mod ws {
             stream: WebSocketStream<Upgraded>,
         ) -> ApiChannel<Send, Receive> {
             let (sink, stream) = stream.split();
-            let pretty_printed = self.pretty_printed;
 
             let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
                 move |typed_message| {
-                    let generic_message_result = if pretty_printed {
-                        serde_json::to_string_pretty(&typed_message)
-                    } else {
-                        serde_json::to_string(&typed_message)
-                    };
+                    let generic_message_result = serde_xml_rs::to_string(&typed_message);
                     future::ready(generic_message_result.map_err(|e| e.into()))
                 },
             );
 
             let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
                 |generic_message| {
-                    let typed_message_result = serde_json::from_str(generic_message.as_str());
+                    let typed_message_result = serde_xml_rs::from_str(generic_message.as_str());
                     future::ready(typed_message_result.map_err(|e| e.into()))
                 },
             );
