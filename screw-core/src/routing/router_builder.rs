@@ -41,8 +41,8 @@ where
         self
     }
 
-    pub fn routes(mut self, routes: RoutesCollection<ORq, ORs>) -> Self {
-        self.handlers.extend(routes.handlers);
+    pub fn routes_collection(mut self, routes_collection: RoutesCollection<ORq, ORs>) -> Self {
+        self.handlers.extend(routes_collection.handlers);
         self
     }
 
