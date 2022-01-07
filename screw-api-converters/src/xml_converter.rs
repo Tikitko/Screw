@@ -7,12 +7,14 @@ use screw_api::{
     ApiResponseContentFailure, ApiResponseContentSuccess,
 };
 use screw_components::dyn_result::DResult;
-use screw_core::routing::RequestResponseConverter;
+use screw_core::routing::{RequestResponseConverter, RequestResponseConverterBase};
 use screw_core::{Request, Response};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug)]
 pub struct XmlApiConverter;
+
+impl RequestResponseConverterBase for XmlApiConverter {}
 
 #[async_trait]
 impl<RqContent, RsContentSuccess, RsContentFailure>
@@ -97,9 +99,11 @@ pub mod ws {
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
     use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
-    use screw_ws::WebSocketStreamConverter;
+    use screw_ws::{WebSocketStreamConverter, WebSocketStreamConverterBase};
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
+
+    impl WebSocketStreamConverterBase for XmlApiConverter {}
 
     #[async_trait]
     impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>> for XmlApiConverter

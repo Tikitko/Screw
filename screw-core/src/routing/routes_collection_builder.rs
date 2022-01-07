@@ -1,4 +1,4 @@
-use super::{RequestResponseConverter, RouteFinal, RoutesCollection};
+use super::{RequestResponseConverter, RequestResponseConverterBase, RouteFinal, RoutesCollection};
 use hyper::{Body, Method, Request};
 use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
@@ -21,7 +21,7 @@ impl RoutesCollectionBuilder {
     where
         ORq: AsRef<Request<Body>> + Send + 'static,
         ORs: Send + 'static,
-        C: Send + Sync + 'static,
+        C: RequestResponseConverterBase + Send + Sync + 'static,
     {
         RoutesCollectionBuilderFinal {
             scope_path: self.scope_path,
@@ -35,7 +35,7 @@ pub struct RoutesCollectionBuilderFinal<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
-    C: Send + Sync + 'static,
+    C: RequestResponseConverterBase + Send + Sync + 'static,
 {
     scope_path: &'static str,
     converter: Arc<C>,
@@ -46,7 +46,7 @@ impl<ORq, ORs, C> RoutesCollectionBuilderFinal<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
-    C: Send + Sync + 'static,
+    C: RequestResponseConverterBase + Send + Sync + 'static,
 {
     pub fn build(self) -> RoutesCollection<ORq, ORs> {
         RoutesCollection {

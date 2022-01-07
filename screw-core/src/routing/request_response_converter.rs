@@ -1,8 +1,12 @@
 use async_trait::async_trait;
 use hyper::{Body, Request};
 
+pub trait RequestResponseConverterBase {}
+
+impl RequestResponseConverterBase for () {}
+
 #[async_trait]
-pub trait RequestResponseConverter<Rq, Rs> {
+pub trait RequestResponseConverter<Rq, Rs>: RequestResponseConverterBase {
     type Request: AsRef<Request<Body>>;
     type Response;
     async fn convert_request(&self, request: Self::Request) -> Rq;
