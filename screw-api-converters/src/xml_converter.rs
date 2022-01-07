@@ -41,8 +41,8 @@ where
                 Some(_) => Err(ApiRequestContentTypeError::Incorrect),
             }?;
             let bytes = body::to_bytes(body).await?;
-            let string = String::from_utf8(bytes.to_vec())?;
-            let data = serde_xml_rs::from_str(string.as_str())?;
+            let xml_string = String::from_utf8(bytes.to_vec())?;
+            let data = quick_xml::de::from_str(xml_string.as_str())?;
             Ok(data)
         }
 
@@ -68,7 +68,7 @@ where
             let content = api_response.content;
 
             let status_code = content.status_code();
-            let xml_string = serde_xml_rs::to_string(&content)?;
+            let xml_string = quick_xml::se::to_string(&content)?;
 
             let response = hyper::Response::builder()
                 .status(status_code)
@@ -115,14 +115,14 @@ pub mod ws {
 
             let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
                 move |typed_message| {
-                    let generic_message_result = serde_xml_rs::to_string(&typed_message);
+                    let generic_message_result = quick_xml::se::to_string(&typed_message);
                     future::ready(generic_message_result.map_err(|e| e.into()))
                 },
             );
 
             let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
                 |generic_message| {
-                    let typed_message_result = serde_xml_rs::from_str(generic_message.as_str());
+                    let typed_message_result = quick_xml::de::from_str(generic_message.as_str());
                     future::ready(typed_message_result.map_err(|e| e.into()))
                 },
             );

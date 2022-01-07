@@ -11,7 +11,7 @@ screw-ws = { path = "../screw-ws", optional = true }
 hyper = { version = "0.14.9", features = ["http1", "http2"] }
 serde = { version = "1.0.130", features = ["derive"] }
 serde_json = { version = "1.0.64", optional = true }
-serde-xml-rs = { version = "0.5.1", optional = true }
+quick-xml = { version = "0.22.0", features = ["serialize"], optional = true }
 async-trait = { version = "0.1.50" }
 futures = { version = "0.3.18", optional = true }
 derive-error = { version = "0.0.5" }
@@ -20,5 +20,5 @@ tokio-tungstenite = { version = "0.16.0", optional = true }
 [features]
 default = []
 json_converter = ["serde_json"]
-xml_converter = ["serde-xml-rs"]
+xml_converter = ["quick-xml"]
 ws = ["screw-ws", "tokio-tungstenite", "futures", "screw-api/ws"]

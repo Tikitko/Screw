@@ -47,8 +47,8 @@ where
                 Some("") | None => Err(ApiRequestContentTypeError::Missed),
                 Some(_) => Err(ApiRequestContentTypeError::Incorrect),
             }?;
-            let bytes = hyper::body::to_bytes(body).await?;
-            let data = serde_json::from_slice(&bytes)?;
+            let json_bytes = hyper::body::to_bytes(body).await?;
+            let data = serde_json::from_slice(&json_bytes)?;
             Ok(data)
         }
 
