@@ -1,4 +1,4 @@
-use super::{RouteFinal, Router, RoutesCollection};
+use super::{RouteThirdPart, Router, RoutesCollection};
 use hyper::{Body, Method, Request};
 use screw_components::dyn_fn::{AsDynFn, DFn};
 use std::collections::HashMap;
@@ -29,7 +29,7 @@ where
         }
     }
 
-    pub fn route<HFn, HFut>(mut self, route: RouteFinal<ORq, ORs, HFn, HFut>) -> Self
+    pub fn route<HFn, HFut>(mut self, route: RouteThirdPart<ORq, ORs, HFn, HFut>) -> Self
     where
         HFn: Fn(ORq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = ORs> + Send + 'static,

@@ -27,8 +27,8 @@ where
     Send: Serialize + std::marker::Send + 'static,
     Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
 {
-    pub sender: ApiChannelSenderFinal<Send>,
-    pub receiver: ApiChannelReceiverFinal<Receive>,
+    pub sender: ApiChannelSenderSecondPart<Send>,
+    pub receiver: ApiChannelReceiverSecondPart<Receive>,
 }
 
 pub enum ApiChannelSenderError {
@@ -48,20 +48,20 @@ impl ApiChannelSender {
     pub fn and_convert_typed_message_fn<Send, HFn, HFut>(
         self,
         convert_typed_message_fn: HFn,
-    ) -> ApiChannelSenderFinal<Send>
+    ) -> ApiChannelSenderSecondPart<Send>
     where
         Send: Serialize + std::marker::Send + 'static,
         HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
     {
-        ApiChannelSenderFinal {
+        ApiChannelSenderSecondPart {
             sink: self.sink,
             convert_typed_message_fn: convert_typed_message_fn.to_dyn_fn(),
         }
     }
 }
 
-pub struct ApiChannelSenderFinal<Send>
+pub struct ApiChannelSenderSecondPart<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
@@ -69,7 +69,7 @@ where
     convert_typed_message_fn: DFn<Send, DResult<String>>,
 }
 
-impl<Send> ApiChannelSenderFinal<Send>
+impl<Send> ApiChannelSenderSecondPart<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
@@ -114,20 +114,20 @@ impl ApiChannelReceiver {
     pub fn and_convert_generic_message_fn<Receive, HFn, HFut>(
         self,
         convert_generic_message_fn: HFn,
-    ) -> ApiChannelReceiverFinal<Receive>
+    ) -> ApiChannelReceiverSecondPart<Receive>
     where
         for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
         HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
     {
-        ApiChannelReceiverFinal {
+        ApiChannelReceiverSecondPart {
             stream: self.stream,
             convert_generic_message_fn: convert_generic_message_fn.to_dyn_fn(),
         }
     }
 }
 
-pub struct ApiChannelReceiverFinal<Receive>
+pub struct ApiChannelReceiverSecondPart<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
@@ -135,7 +135,7 @@ where
     convert_generic_message_fn: DFn<String, DResult<Receive>>,
 }
 
-impl<Receive> ApiChannelReceiverFinal<Receive>
+impl<Receive> ApiChannelReceiverSecondPart<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {

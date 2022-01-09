@@ -25,14 +25,14 @@ pub struct RouteSecondPart {
 }
 
 impl RouteSecondPart {
-    pub fn and_handler<Rq, Rs, HFn, HFut>(self, handler: HFn) -> RouteFinal<Rq, Rs, HFn, HFut>
+    pub fn and_handler<Rq, Rs, HFn, HFut>(self, handler: HFn) -> RouteThirdPart<Rq, Rs, HFn, HFut>
     where
         Rq: Send + 'static,
         Rs: Send + 'static,
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = Rs> + Send + 'static,
     {
-        RouteFinal {
+        RouteThirdPart {
             method: self.method,
             path: self.path,
             handler,
@@ -43,7 +43,7 @@ impl RouteSecondPart {
     }
 }
 
-pub struct RouteFinal<Rq, Rs, HFn, HFut>
+pub struct RouteThirdPart<Rq, Rs, HFn, HFut>
 where
     Rq: Send + 'static,
     Rs: Send + 'static,

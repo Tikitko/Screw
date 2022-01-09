@@ -19,20 +19,20 @@ impl ResponderFactory {
         }
     }
 
-    pub fn and_extensions(self, extensions: Extensions) -> ResponderFactoryFinal {
-        ResponderFactoryFinal {
+    pub fn and_extensions(self, extensions: Extensions) -> ResponderFactorySecondPart {
+        ResponderFactorySecondPart {
             router: self.router,
             extensions: Arc::new(extensions),
         }
     }
 }
 
-pub struct ResponderFactoryFinal {
+pub struct ResponderFactorySecondPart {
     router: Arc<routing::Router<Request, Response>>,
     extensions: Arc<Extensions>,
 }
 
-impl server::ResponderFactory for ResponderFactoryFinal {
+impl server::ResponderFactory for ResponderFactorySecondPart {
     type Responder = Responder;
     fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {
         Responder {

@@ -1,4 +1,6 @@
-use super::{RequestResponseConverter, RequestResponseConverterBase, RouteFinal, RoutesCollection};
+use super::{
+    RequestResponseConverter, RequestResponseConverterBase, RouteThirdPart, RoutesCollection,
+};
 use hyper::{Body, Method, Request};
 use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
@@ -17,13 +19,13 @@ impl RoutesCollectionBuilder {
     pub fn and_converter<ORq, ORs, C>(
         self,
         converter: C,
-    ) -> RoutesCollectionBuilderFinal<ORq, ORs, C>
+    ) -> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
     where
         ORq: AsRef<Request<Body>> + Send + 'static,
         ORs: Send + 'static,
         C: RequestResponseConverterBase + Send + Sync + 'static,
     {
-        RoutesCollectionBuilderFinal {
+        RoutesCollectionBuilderSecondPart {
             scope_path: self.scope_path,
             converter: Arc::new(converter),
             handlers: Default::default(),
@@ -31,7 +33,7 @@ impl RoutesCollectionBuilder {
     }
 }
 
-pub struct RoutesCollectionBuilderFinal<ORq, ORs, C>
+pub struct RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
@@ -42,7 +44,7 @@ where
     handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
 }
 
-impl<ORq, ORs, C> RoutesCollectionBuilderFinal<ORq, ORs, C>
+impl<ORq, ORs, C> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
@@ -62,11 +64,11 @@ where
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
     HFut: Future<Output = Rs> + Send + 'static,
 {
-    fn route(self, route: RouteFinal<Rq, Rs, HFn, HFut>) -> Self;
+    fn route(self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self;
 }
 
 impl<ORq, ORs, C, Rq, Rs, HFn, HFut> RoutesCollectionBuild<Rq, Rs, HFn, HFut>
-    for RoutesCollectionBuilderFinal<ORq, ORs, C>
+    for RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
@@ -76,7 +78,7 @@ where
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
     HFut: Future<Output = Rs> + Send + 'static,
 {
-    fn route(mut self, route: RouteFinal<Rq, Rs, HFn, HFut>) -> Self {
+    fn route(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self {
         let handler = Arc::new(route.handler);
         let converter = self.converter.clone();
         self.handlers.insert(

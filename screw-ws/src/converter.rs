@@ -98,18 +98,18 @@ impl WebSocketConverter {
         Self { config }
     }
 
-    pub fn and_stream_converter<C>(self, stream_converter: C) -> WebSocketConverterFinal<C>
+    pub fn and_stream_converter<C>(self, stream_converter: C) -> WebSocketConverterSecondPart<C>
     where
         C: WebSocketStreamConverterBase + Sync + Send + 'static,
     {
-        WebSocketConverterFinal {
+        WebSocketConverterSecondPart {
             config: self.config,
             stream_converter: Arc::new(stream_converter),
         }
     }
 }
 
-pub struct WebSocketConverterFinal<C>
+pub struct WebSocketConverterSecondPart<C>
 where
     C: WebSocketStreamConverterBase + Sync + Send + 'static,
 {
@@ -117,7 +117,7 @@ where
     stream_converter: Arc<C>,
 }
 
-impl<C> RequestResponseConverterBase for WebSocketConverterFinal<C> where
+impl<C> RequestResponseConverterBase for WebSocketConverterSecondPart<C> where
     C: WebSocketStreamConverterBase + Sync + Send + 'static
 {
 }
@@ -125,7 +125,7 @@ impl<C> RequestResponseConverterBase for WebSocketConverterFinal<C> where
 #[async_trait]
 impl<C, Content, Stream>
     RequestResponseConverter<WebSocketRequest<Content, Stream>, WebSocketResponse>
-    for WebSocketConverterFinal<C>
+    for WebSocketConverterSecondPart<C>
 where
     C: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
     Content: WebSocketContent + Send + 'static,
