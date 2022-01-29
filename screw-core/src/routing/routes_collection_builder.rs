@@ -57,28 +57,20 @@ where
     }
 }
 
-pub trait RoutesCollectionBuild<Rq, Rs, HFn, HFut>
-where
-    Rq: Send + 'static,
-    Rs: Send + 'static,
-    HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
-    HFut: Future<Output = Rs> + Send + 'static,
-{
-    fn route(self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self;
-}
-
-impl<ORq, ORs, C, Rq, Rs, HFn, HFut> RoutesCollectionBuild<Rq, Rs, HFn, HFut>
-    for RoutesCollectionBuilderSecondPart<ORq, ORs, C>
+impl<ORq, ORs, C> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
     ORq: AsRef<Request<Body>> + Send + 'static,
     ORs: Send + 'static,
-    C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs> + Send + Sync + 'static,
-    Rq: Send + 'static,
-    Rs: Send + 'static,
-    HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
-    HFut: Future<Output = Rs> + Send + 'static,
+    C: RequestResponseConverterBase + Send + Sync + 'static,
 {
-    fn route(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self {
+    pub fn route<Rq, Rs, HFn, HFut>(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self
+    where
+        C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs>,
+        Rq: Send + 'static,
+        Rs: Send + 'static,
+        HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
+        HFut: Future<Output = Rs> + Send + 'static,
+    {
         let handler = Arc::new(route.handler);
         let converter = self.converter.clone();
         self.handlers.insert(
