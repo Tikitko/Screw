@@ -76,7 +76,7 @@ where
         self.handlers.insert(
             (
                 route.method.clone(),
-                format!("{}{}", self.scope_path, route.path),
+                self.scope_path.to_string() + route.path,
             ),
             Box::new(move |request| {
                 let handler = handler.clone();
