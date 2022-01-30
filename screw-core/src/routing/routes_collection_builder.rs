@@ -50,19 +50,6 @@ where
     ORs: Send + 'static,
     C: RequestResponseConverterBase + Send + Sync + 'static,
 {
-    pub fn build(self) -> RoutesCollection<ORq, ORs> {
-        RoutesCollection {
-            handlers: self.handlers,
-        }
-    }
-}
-
-impl<ORq, ORs, C> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
-where
-    ORq: AsRef<Request<Body>> + Send + 'static,
-    ORs: Send + 'static,
-    C: RequestResponseConverterBase + Send + Sync + 'static,
-{
     pub fn route<Rq, Rs, HFn, HFut>(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self
     where
         C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs>,
@@ -91,5 +78,11 @@ where
             }),
         );
         self
+    }
+
+    pub fn build(self) -> RoutesCollection<ORq, ORs> {
+        RoutesCollection {
+            handlers: self.handlers,
+        }
     }
 }
