@@ -1,4 +1,4 @@
-use super::Responder;
+use super::*;
 use hyper::service::Service;
 use hyper::{Body, Request, Response};
 use std::convert::Infallible;

@@ -1,4 +1,4 @@
-use super::WebSocketResponse;
+use super::*;
 use hyper::http::request::Parts;
 use hyper::http::Extensions;
 use hyper::upgrade::{OnUpgrade, Upgraded};

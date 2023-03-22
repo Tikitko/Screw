@@ -1,12 +1,12 @@
-use super::{RouteThirdPart, Router, RoutesCollection};
-use hyper::{Body, Method, Request};
+use super::*;
+use hyper::Method;
 use screw_components::dyn_fn::{AsDynFn, DFn};
 use std::collections::HashMap;
 use std::future::Future;
 
 pub struct RouterBuilder<ORq, ORs>
 where
-    ORq: AsRef<Request<Body>> + Send + 'static,
+    ORq: Send + 'static,
     ORs: Send + 'static,
 {
     handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
@@ -15,7 +15,7 @@ where
 
 impl<ORq, ORs> RouterBuilder<ORq, ORs>
 where
-    ORq: AsRef<Request<Body>> + Send + 'static,
+    ORq: Send + 'static,
     ORs: Send + 'static,
 {
     pub fn with_fallback_handler<HFn, HFut>(fallback_handler: HFn) -> Self

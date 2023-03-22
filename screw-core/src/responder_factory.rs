@@ -1,6 +1,4 @@
-use super::routing;
-use super::server;
-use super::{Request, Response};
+use super::*;
 use hyper::http::Extensions;
 use hyper::Body;
 use std::future::Future;
@@ -56,7 +54,6 @@ impl server::Responder for Responder {
         let remote_addr = self.remote_addr;
         let router = self.router.clone();
         let extensions = self.extensions.clone();
-
         Box::pin(async move {
             let request = Request {
                 remote_addr,
@@ -64,7 +61,8 @@ impl server::Responder for Responder {
                 http: http_request,
             };
             let response = router.process(request).await;
-            response.http
+            let http_response = response.http;
+            http_response
         })
     }
 }

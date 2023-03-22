@@ -1,13 +1,6 @@
-use async_trait::async_trait;
-use hyper::{Body, Request};
-
-pub trait RequestResponseConverterBase {}
-
-impl RequestResponseConverterBase for () {}
-
 #[async_trait]
-pub trait RequestResponseConverter<Rq, Rs>: RequestResponseConverterBase {
-    type Request: AsRef<Request<Body>>;
+pub trait RequestResponseConverter<Rq, Rs> {
+    type Request;
     type Response;
     async fn convert_request(&self, request: Self::Request) -> Rq;
     async fn convert_response(&self, response: Rs) -> Self::Response;
@@ -16,7 +9,7 @@ pub trait RequestResponseConverter<Rq, Rs>: RequestResponseConverterBase {
 #[async_trait]
 impl<Rq, Rs> RequestResponseConverter<Rq, Rs> for ()
 where
-    Rq: AsRef<Request<Body>> + Send + 'static,
+    Rq: Send + 'static,
     Rs: Send + 'static,
 {
     type Request = Rq;

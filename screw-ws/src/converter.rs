@@ -1,12 +1,8 @@
-use super::{
-    WebSocketContent, WebSocketOriginContent, WebSocketRequest, WebSocketResponse,
-    WebSocketStreamConverter, WebSocketStreamConverterBase, WebSocketUpgradable, WebSocketUpgrade,
-};
-use async_trait::async_trait;
+use super::*;
 use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
-use screw_core::routing::{RequestResponseConverter, RequestResponseConverterBase};
+use screw_core::routing::RequestResponseConverter;
 use screw_core::{Request, Response};
 use std::sync::Arc;
 use tokio::task;
@@ -100,7 +96,7 @@ impl WebSocketConverter {
 
     pub fn and_stream_converter<C>(self, stream_converter: C) -> WebSocketConverterSecondPart<C>
     where
-        C: WebSocketStreamConverterBase + Sync + Send + 'static,
+        C: Sync + Send + 'static,
     {
         WebSocketConverterSecondPart {
             config: self.config,
@@ -111,15 +107,10 @@ impl WebSocketConverter {
 
 pub struct WebSocketConverterSecondPart<C>
 where
-    C: WebSocketStreamConverterBase + Sync + Send + 'static,
+    C: Sync + Send + 'static,
 {
     config: Option<WebSocketConfig>,
     stream_converter: Arc<C>,
-}
-
-impl<C> RequestResponseConverterBase for WebSocketConverterSecondPart<C> where
-    C: WebSocketStreamConverterBase + Sync + Send + 'static
-{
 }
 
 #[async_trait]

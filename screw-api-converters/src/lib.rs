@@ -14,3 +14,7 @@ enum ApiRequestContentTypeError {
     Missed,
     Incorrect,
 }
+
+#[cfg(any(feature = "json_converter", feature = "xml_converter"))]
+#[macro_use]
+extern crate async_trait;

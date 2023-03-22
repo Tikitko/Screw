@@ -1,7 +1,5 @@
-use super::{
-    RequestResponseConverter, RequestResponseConverterBase, RouteThirdPart, RoutesCollection,
-};
-use hyper::{Body, Method, Request};
+use super::*;
+use hyper::Method;
 use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
 use std::future::Future;
@@ -21,9 +19,9 @@ impl RoutesCollectionBuilder {
         converter: C,
     ) -> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
     where
-        ORq: AsRef<Request<Body>> + Send + 'static,
+        ORq: Send + 'static,
         ORs: Send + 'static,
-        C: RequestResponseConverterBase + Send + Sync + 'static,
+        C: Send + Sync + 'static,
     {
         RoutesCollectionBuilderSecondPart {
             scope_path: self.scope_path,
@@ -35,9 +33,9 @@ impl RoutesCollectionBuilder {
 
 pub struct RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
-    ORq: AsRef<Request<Body>> + Send + 'static,
+    ORq: Send + 'static,
     ORs: Send + 'static,
-    C: RequestResponseConverterBase + Send + Sync + 'static,
+    C: Send + Sync + 'static,
 {
     scope_path: &'static str,
     converter: Arc<C>,
@@ -46,9 +44,9 @@ where
 
 impl<ORq, ORs, C> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
 where
-    ORq: AsRef<Request<Body>> + Send + 'static,
+    ORq: Send + 'static,
     ORs: Send + 'static,
-    C: RequestResponseConverterBase + Send + Sync + 'static,
+    C: Send + Sync + 'static,
 {
     pub fn route<Rq, Rs, HFn, HFut>(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self
     where

@@ -1,4 +1,4 @@
-use super::Responder;
+use super::*;
 use std::net::SocketAddr;
 
 pub trait ResponderFactory {

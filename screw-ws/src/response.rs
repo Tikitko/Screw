@@ -1,4 +1,4 @@
-use super::WebSocketUpgradable;
+use super::*;
 use hyper::upgrade::Upgraded;
 use screw_components::dyn_fn::DFnOnce;
 use tokio_tungstenite::tungstenite::error::ProtocolError;

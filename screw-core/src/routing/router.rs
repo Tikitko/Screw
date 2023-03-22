@@ -2,10 +2,7 @@ use hyper::{Body, Method, Request};
 use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
 
-pub struct Router<ORq, ORs>
-where
-    ORq: AsRef<Request<Body>>,
-{
+pub struct Router<ORq, ORs> {
     pub(super) handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
     pub(super) fallback_handler: DFn<ORq, ORs>,
 }
