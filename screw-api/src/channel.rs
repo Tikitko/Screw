@@ -38,7 +38,7 @@ pub enum ApiChannelSenderError {
 
 pub struct ApiChannelSenderParams<HFn> {
     pub sink: SplitSink<WebSocketStream<Upgraded>, Message>,
-    pub convert_typed_message_fn: HFn
+    pub convert_typed_message_fn: HFn,
 }
 
 pub struct ApiChannelSender<Send>
@@ -53,7 +53,7 @@ impl<Send> ApiChannelSender<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
-    pub fn new<HFn, HFut>(params: ApiChannelSenderParams<HFn>) -> Self 
+    pub fn new<HFn, HFut>(params: ApiChannelSenderParams<HFn>) -> Self
     where
         HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
         HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
@@ -100,7 +100,7 @@ where
     HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
 {
     pub stream: SplitStream<WebSocketStream<Upgraded>>,
-    pub convert_generic_message_fn: HFn
+    pub convert_generic_message_fn: HFn,
 }
 
 pub struct ApiChannelReceiver<Receive>

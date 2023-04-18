@@ -95,7 +95,10 @@ pub mod ws {
     use super::*;
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
-    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelReceiverParams, ApiChannelSender, ApiChannelSenderParams};
+    use screw_api::{
+        ApiChannel, ApiChannelReceiver, ApiChannelReceiverParams, ApiChannelSender,
+        ApiChannelSenderParams,
+    };
     use screw_ws::WebSocketStreamConverter;
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
@@ -128,7 +131,7 @@ pub mod ws {
                 },
             };
 
-            ApiChannel { 
+            ApiChannel {
                 sender: ApiChannelSender::new(sender_params),
                 receiver: ApiChannelReceiver::new(receiver_params),
             }
