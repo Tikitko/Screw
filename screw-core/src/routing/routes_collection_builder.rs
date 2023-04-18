@@ -5,33 +5,15 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
-pub struct RoutesCollectionBuilder {
-    scope_path: &'static str,
+pub struct RoutesCollectionBuilderParams<C>
+where
+    C: Send + Sync + 'static,
+{
+    pub scope_path: &'static str,
+    pub converter: C,
 }
 
-impl RoutesCollectionBuilder {
-    pub fn with_scope_path(scope_path: &'static str) -> Self {
-        Self { scope_path }
-    }
-
-    pub fn and_converter<ORq, ORs, C>(
-        self,
-        converter: C,
-    ) -> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
-    where
-        ORq: Send + 'static,
-        ORs: Send + 'static,
-        C: Send + Sync + 'static,
-    {
-        RoutesCollectionBuilderSecondPart {
-            scope_path: self.scope_path,
-            converter: Arc::new(converter),
-            handlers: Default::default(),
-        }
-    }
-}
-
-pub struct RoutesCollectionBuilderSecondPart<ORq, ORs, C>
+pub struct RoutesCollectionBuilder<ORq, ORs, C>
 where
     ORq: Send + 'static,
     ORs: Send + 'static,
@@ -42,13 +24,21 @@ where
     handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
 }
 
-impl<ORq, ORs, C> RoutesCollectionBuilderSecondPart<ORq, ORs, C>
+impl<ORq, ORs, C> RoutesCollectionBuilder<ORq, ORs, C>
 where
     ORq: Send + 'static,
     ORs: Send + 'static,
     C: Send + Sync + 'static,
 {
-    pub fn route<Rq, Rs, HFn, HFut>(mut self, route: RouteThirdPart<Rq, Rs, HFn, HFut>) -> Self
+    pub fn new(params: RoutesCollectionBuilderParams<C>) -> Self {
+        Self {
+            scope_path: params.scope_path,
+            converter: Arc::new(params.converter),
+            handlers: Default::default(),
+        }
+    }
+
+    pub fn route<Rq, Rs, HFn, HFut>(mut self, route: Route<Rq, Rs, HFn, HFut>) -> Self
     where
         C: RequestResponseConverter<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,

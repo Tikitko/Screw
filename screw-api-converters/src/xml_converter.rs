@@ -95,7 +95,7 @@ pub mod ws {
     use super::*;
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
-    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
+    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelReceiverParams, ApiChannelSender, ApiChannelSenderParams};
     use screw_ws::WebSocketStreamConverter;
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
@@ -112,21 +112,26 @@ pub mod ws {
         ) -> ApiChannel<Send, Receive> {
             let (sink, stream) = stream.split();
 
-            let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
-                move |typed_message| {
+            let sender_params = ApiChannelSenderParams {
+                sink,
+                convert_typed_message_fn: move |typed_message| {
                     let generic_message_result = quick_xml::se::to_string(&typed_message);
                     future::ready(generic_message_result.map_err(|e| e.into()))
                 },
-            );
+            };
 
-            let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
-                |generic_message| {
+            let receiver_params = ApiChannelReceiverParams {
+                stream,
+                convert_generic_message_fn: |generic_message| {
                     let typed_message_result = quick_xml::de::from_str(generic_message.as_str());
                     future::ready(typed_message_result.map_err(|e| e.into()))
                 },
-            );
+            };
 
-            ApiChannel { sender, receiver }
+            ApiChannel { 
+                sender: ApiChannelSender::new(sender_params),
+                receiver: ApiChannelReceiver::new(receiver_params),
+            }
         }
     }
 }

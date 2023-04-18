@@ -11,18 +11,7 @@ where
     R: Responder,
     R::ResponseFuture: Send + 'static,
 {
-    responder_factory: F,
-}
-
-impl<F, R> ServerService<F, R>
-where
-    F: ResponderFactory<Responder = R>,
-    R: Responder,
-    R::ResponseFuture: Send + 'static,
-{
-    pub fn with_responder_factory(responder_factory: F) -> Self {
-        Self { responder_factory }
-    }
+    pub responder_factory: F,
 }
 
 impl<F, R> Service<&AddrStream> for ServerService<F, R>

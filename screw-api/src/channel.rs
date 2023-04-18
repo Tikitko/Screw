@@ -27,8 +27,8 @@ where
     Send: Serialize + std::marker::Send + 'static,
     Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
 {
-    pub sender: ApiChannelSenderSecondPart<Send>,
-    pub receiver: ApiChannelReceiverSecondPart<Receive>,
+    pub sender: ApiChannelSender<Send>,
+    pub receiver: ApiChannelReceiver<Receive>,
 }
 
 pub enum ApiChannelSenderError {
@@ -36,32 +36,12 @@ pub enum ApiChannelSenderError {
     Tungstenite(Error),
 }
 
-pub struct ApiChannelSender {
-    sink: SplitSink<WebSocketStream<Upgraded>, Message>,
+pub struct ApiChannelSenderParams<HFn> {
+    pub sink: SplitSink<WebSocketStream<Upgraded>, Message>,
+    pub convert_typed_message_fn: HFn
 }
 
-impl ApiChannelSender {
-    pub fn with_sink(sink: SplitSink<WebSocketStream<Upgraded>, Message>) -> Self {
-        Self { sink }
-    }
-
-    pub fn and_convert_typed_message_fn<Send, HFn, HFut>(
-        self,
-        convert_typed_message_fn: HFn,
-    ) -> ApiChannelSenderSecondPart<Send>
-    where
-        Send: Serialize + std::marker::Send + 'static,
-        HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
-        HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
-    {
-        ApiChannelSenderSecondPart {
-            sink: self.sink,
-            convert_typed_message_fn: convert_typed_message_fn.to_dyn_fn(),
-        }
-    }
-}
-
-pub struct ApiChannelSenderSecondPart<Send>
+pub struct ApiChannelSender<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
@@ -69,10 +49,21 @@ where
     convert_typed_message_fn: DFn<Send, DResult<String>>,
 }
 
-impl<Send> ApiChannelSenderSecondPart<Send>
+impl<Send> ApiChannelSender<Send>
 where
     Send: Serialize + std::marker::Send + 'static,
 {
+    pub fn new<HFn, HFut>(params: ApiChannelSenderParams<HFn>) -> Self 
+    where
+        HFn: Fn(Send) -> HFut + std::marker::Send + Sync + 'static,
+        HFut: Future<Output = DResult<String>> + std::marker::Send + 'static,
+    {
+        Self {
+            sink: params.sink,
+            convert_typed_message_fn: params.convert_typed_message_fn.to_dyn_fn(),
+        }
+    }
+
     pub async fn send(&mut self, typed_message: Send) -> Result<(), ApiChannelSenderError> {
         let convert_typed_message_fn = &self.convert_typed_message_fn;
 
@@ -102,32 +93,17 @@ pub enum ApiChannelReceiverError {
     Closed,
 }
 
-pub struct ApiChannelReceiver {
-    stream: SplitStream<WebSocketStream<Upgraded>>,
+pub struct ApiChannelReceiverParams<Receive, HFn, HFut>
+where
+    for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
+    HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
+    HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
+{
+    pub stream: SplitStream<WebSocketStream<Upgraded>>,
+    pub convert_generic_message_fn: HFn
 }
 
-impl ApiChannelReceiver {
-    pub fn with_stream(stream: SplitStream<WebSocketStream<Upgraded>>) -> Self {
-        Self { stream }
-    }
-
-    pub fn and_convert_generic_message_fn<Receive, HFn, HFut>(
-        self,
-        convert_generic_message_fn: HFn,
-    ) -> ApiChannelReceiverSecondPart<Receive>
-    where
-        for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
-        HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
-        HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
-    {
-        ApiChannelReceiverSecondPart {
-            stream: self.stream,
-            convert_generic_message_fn: convert_generic_message_fn.to_dyn_fn(),
-        }
-    }
-}
-
-pub struct ApiChannelReceiverSecondPart<Receive>
+pub struct ApiChannelReceiver<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
@@ -135,10 +111,20 @@ where
     convert_generic_message_fn: DFn<String, DResult<Receive>>,
 }
 
-impl<Receive> ApiChannelReceiverSecondPart<Receive>
+impl<Receive> ApiChannelReceiver<Receive>
 where
     for<'de> Receive: Deserialize<'de> + std::marker::Send + 'static,
 {
+    pub fn new<HFn, HFut>(params: ApiChannelReceiverParams<Receive, HFn, HFut>) -> Self
+    where
+        HFn: Fn(String) -> HFut + std::marker::Send + Sync + 'static,
+        HFut: Future<Output = DResult<Receive>> + std::marker::Send + 'static,
+    {
+        Self {
+            stream: params.stream,
+            convert_generic_message_fn: params.convert_generic_message_fn.to_dyn_fn(),
+        }
+    }
     pub async fn receive(&mut self) -> Result<Receive, ApiChannelReceiverError> {
         let convert_generic_message_fn = &self.convert_generic_message_fn;
 

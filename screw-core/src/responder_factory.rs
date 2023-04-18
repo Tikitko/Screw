@@ -6,31 +6,26 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 
+pub struct ResponderFactoryParams {
+    pub router: routing::Router<Request, Response>,
+    pub extensions: Extensions,
+}
+
 pub struct ResponderFactory {
-    router: Arc<routing::Router<Request, Response>>,
-}
-
-impl ResponderFactory {
-    pub fn with_router(router: routing::Router<Request, Response>) -> Self {
-        Self {
-            router: Arc::new(router),
-        }
-    }
-
-    pub fn and_extensions(self, extensions: Extensions) -> ResponderFactorySecondPart {
-        ResponderFactorySecondPart {
-            router: self.router,
-            extensions: Arc::new(extensions),
-        }
-    }
-}
-
-pub struct ResponderFactorySecondPart {
     router: Arc<routing::Router<Request, Response>>,
     extensions: Arc<Extensions>,
 }
 
-impl server::ResponderFactory for ResponderFactorySecondPart {
+impl ResponderFactory {
+    pub fn new(params: ResponderFactoryParams) -> Self {
+        Self {
+            router: Arc::new(params.router),
+            extensions: Arc::new(params.extensions),
+        }
+    }
+}
+
+impl server::ResponderFactory for ResponderFactory {
     type Responder = Responder;
     fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {
         Responder {

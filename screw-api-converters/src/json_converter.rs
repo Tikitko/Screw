@@ -12,13 +12,7 @@ use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug)]
 pub struct JsonApiConverter {
-    pretty_printed: bool,
-}
-
-impl JsonApiConverter {
-    pub fn with_pretty_printed(pretty_printed: bool) -> Self {
-        Self { pretty_printed }
-    }
+    pub pretty_printed: bool,
 }
 
 #[async_trait]
@@ -105,7 +99,7 @@ pub mod ws {
     use super::*;
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
-    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
+    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelReceiverParams, ApiChannelSender, ApiChannelSenderParams};
     use screw_ws::WebSocketStreamConverter;
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
@@ -123,8 +117,9 @@ pub mod ws {
             let (sink, stream) = stream.split();
             let pretty_printed = self.pretty_printed;
 
-            let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
-                move |typed_message| {
+            let sender_params = ApiChannelSenderParams {
+                sink,
+                convert_typed_message_fn: move |typed_message| {
                     let generic_message_result = if pretty_printed {
                         serde_json::to_string_pretty(&typed_message)
                     } else {
@@ -132,16 +127,20 @@ pub mod ws {
                     };
                     future::ready(generic_message_result.map_err(|e| e.into()))
                 },
-            );
+            };
 
-            let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
-                |generic_message| {
+            let receiver_params = ApiChannelReceiverParams {
+                stream,
+                convert_generic_message_fn: |generic_message| {
                     let typed_message_result = serde_json::from_str(generic_message.as_str());
                     future::ready(typed_message_result.map_err(|e| e.into()))
                 },
-            );
+            };
 
-            ApiChannel { sender, receiver }
+            ApiChannel { 
+                sender: ApiChannelSender::new(sender_params),
+                receiver: ApiChannelReceiver::new(receiver_params),
+            }
         }
     }
 }

@@ -85,27 +85,15 @@ fn try_upgradable(
     Ok(WebSocketUpgradable { on_upgrade, key })
 }
 
-pub struct WebSocketConverter {
-    config: Option<WebSocketConfig>,
+pub struct WebSocketConverterParams<C>
+where
+    C: Sync + Send + 'static,
+{
+    pub config: Option<WebSocketConfig>,
+    pub stream_converter: C,
 }
 
-impl WebSocketConverter {
-    pub fn with_config(config: Option<WebSocketConfig>) -> Self {
-        Self { config }
-    }
-
-    pub fn and_stream_converter<C>(self, stream_converter: C) -> WebSocketConverterSecondPart<C>
-    where
-        C: Sync + Send + 'static,
-    {
-        WebSocketConverterSecondPart {
-            config: self.config,
-            stream_converter: Arc::new(stream_converter),
-        }
-    }
-}
-
-pub struct WebSocketConverterSecondPart<C>
+pub struct WebSocketConverter<C>
 where
     C: Sync + Send + 'static,
 {
@@ -113,10 +101,22 @@ where
     stream_converter: Arc<C>,
 }
 
+impl<C> WebSocketConverter<C>
+where
+    C: Sync + Send + 'static,
+{
+    pub fn new(params: WebSocketConverterParams<C>) -> Self {
+        Self {
+            config: params.config,
+            stream_converter: Arc::new(params.stream_converter),
+        }
+    }
+}
+
 #[async_trait]
 impl<C, Content, Stream>
     RequestResponseConverter<WebSocketRequest<Content, Stream>, WebSocketResponse>
-    for WebSocketConverterSecondPart<C>
+    for WebSocketConverter<C>
 where
     C: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
     Content: WebSocketContent + Send + 'static,

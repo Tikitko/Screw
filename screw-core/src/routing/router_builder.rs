@@ -4,6 +4,10 @@ use screw_components::dyn_fn::{AsDynFn, DFn};
 use std::collections::HashMap;
 use std::future::Future;
 
+pub struct RouterBuilderParams<HFn> {
+    pub fallback_handler: HFn,
+}
+
 pub struct RouterBuilder<ORq, ORs>
 where
     ORq: Send + 'static,
@@ -18,18 +22,18 @@ where
     ORq: Send + 'static,
     ORs: Send + 'static,
 {
-    pub fn with_fallback_handler<HFn, HFut>(fallback_handler: HFn) -> Self
+    pub fn new<HFn, HFut>(params: RouterBuilderParams<HFn>) -> Self
     where
         HFn: Fn(ORq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = ORs> + Send + 'static,
     {
         RouterBuilder {
             handlers: Default::default(),
-            fallback_handler: fallback_handler.to_dyn_fn(),
+            fallback_handler: params.fallback_handler.to_dyn_fn(),
         }
     }
 
-    pub fn route<HFn, HFut>(mut self, route: RouteThirdPart<ORq, ORs, HFn, HFut>) -> Self
+    pub fn route<HFn, HFut>(mut self, route: Route<ORq, ORs, HFn, HFut>) -> Self
     where
         HFn: Fn(ORq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = ORs> + Send + 'static,
