@@ -9,12 +9,12 @@ pub mod first {
     pub struct RoutesCollectionBuilder {
         scope_path: &'static str,
     }
-    
+
     impl RoutesCollectionBuilder {
         pub fn with_scope_path(scope_path: &'static str) -> Self {
             Self { scope_path }
         }
-    
+
         pub fn and_converter<ORq, ORs, C>(
             self,
             converter: C,
@@ -51,7 +51,7 @@ pub mod second {
         pub(super) converter: Arc<C>,
         pub(super) handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
     }
-    
+
     impl<ORq, ORs, C> RoutesCollectionBuilder<ORq, ORs, C>
     where
         ORq: Send + 'static,
@@ -87,7 +87,7 @@ pub mod second {
             );
             self
         }
-    
+
         pub fn build(self) -> RoutesCollection<ORq, ORs> {
             RoutesCollection {
                 handlers: self.handlers,

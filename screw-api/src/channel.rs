@@ -57,12 +57,12 @@ pub mod first {
     pub struct ApiChannelSender {
         sink: SplitSink<WebSocketStream<Upgraded>, Message>,
     }
-    
+
     impl ApiChannelSender {
         pub fn with_sink(sink: SplitSink<WebSocketStream<Upgraded>, Message>) -> Self {
             Self { sink }
         }
-    
+
         pub fn and_convert_typed_message_fn<Send, HFn, HFut>(
             self,
             convert_typed_message_fn: HFn,
@@ -82,12 +82,12 @@ pub mod first {
     pub struct ApiChannelReceiver {
         stream: SplitStream<WebSocketStream<Upgraded>>,
     }
-    
+
     impl ApiChannelReceiver {
         pub fn with_stream(stream: SplitStream<WebSocketStream<Upgraded>>) -> Self {
             Self { stream }
         }
-    
+
         pub fn and_convert_generic_message_fn<Receive, HFn, HFut>(
             self,
             convert_generic_message_fn: HFn,
@@ -121,14 +121,14 @@ pub mod second {
         pub(super) sink: SplitSink<WebSocketStream<Upgraded>, Message>,
         pub(super) convert_typed_message_fn: DFn<Send, DResult<String>>,
     }
-    
+
     impl<Send> ApiChannelSender<Send>
     where
         Send: Serialize + std::marker::Send + 'static,
     {
         pub async fn send(&mut self, typed_message: Send) -> Result<(), ApiChannelSenderError> {
             let convert_typed_message_fn = &self.convert_typed_message_fn;
-    
+
             let generic_message = convert_typed_message_fn(typed_message)
                 .await
                 .map_err(ApiChannelSenderError::Convert)?;
@@ -138,7 +138,7 @@ pub mod second {
                 .map_err(ApiChannelSenderError::Tungstenite)?;
             Ok(())
         }
-    
+
         pub async fn close(&mut self) -> Result<(), ApiChannelSenderError> {
             self.sink
                 .send(Message::Close(None))

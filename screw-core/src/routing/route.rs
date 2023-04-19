@@ -7,12 +7,12 @@ pub mod first {
     pub struct Route {
         method: &'static Method,
     }
-    
+
     impl Route {
         pub fn with_method(method: &'static Method) -> Self {
             Self { method }
         }
-    
+
         pub fn and_path(self, path: &'static str) -> second::Route {
             second::Route {
                 method: self.method,
@@ -31,7 +31,7 @@ pub mod second {
         pub(super) method: &'static Method,
         pub(super) path: &'static str,
     }
-    
+
     impl Route {
         pub fn and_handler<Rq, Rs, HFn, HFut>(self, handler: HFn) -> third::Route<Rq, Rs, HFn, HFut>
         where

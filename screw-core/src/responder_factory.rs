@@ -2,11 +2,11 @@ pub use first::*;
 
 use super::*;
 use hyper::http::Extensions;
-use std::sync::Arc;
 use hyper::Body;
 use std::future::Future;
 use std::net::SocketAddr;
 use std::pin::Pin;
+use std::sync::Arc;
 
 pub mod first {
     use super::*;
@@ -43,7 +43,7 @@ pub mod second {
         pub(super) router: Arc<routing::Router<Request, Response>>,
         pub(super) extensions: Arc<Extensions>,
     }
-    
+
     impl server::ResponderFactory for ResponderFactory {
         type Responder = Responder;
         fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {

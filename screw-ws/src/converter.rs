@@ -88,12 +88,12 @@ pub mod first {
     pub struct WebSocketConverter {
         config: Option<WebSocketConfig>,
     }
-    
+
     impl WebSocketConverter {
         pub fn with_config(config: Option<WebSocketConfig>) -> Self {
             Self { config }
         }
-    
+
         pub fn and_stream_converter<C>(self, stream_converter: C) -> second::WebSocketConverter<C>
         where
             C: Sync + Send + 'static,
@@ -125,7 +125,7 @@ pub mod second {
         pub(super) config: Option<WebSocketConfig>,
         pub(super) stream_converter: Arc<C>,
     }
-    
+
     #[async_trait]
     impl<C, Content, Stream>
         RequestResponseConverter<WebSocketRequest<Content, Stream>, WebSocketResponse>
@@ -143,13 +143,13 @@ pub mod second {
         ) -> WebSocketRequest<Content, Stream> {
             let upgradable_result = try_upgradable(&mut request.http);
             let (http_parts, _) = request.http.into_parts();
-    
+
             let request_content = Content::create(WebSocketOriginContent {
                 http_parts,
                 remote_addr: request.remote_addr,
                 extensions: request.extensions,
             });
-    
+
             let stream_converter = self.stream_converter.clone();
             let request_upgrade = WebSocketUpgrade {
                 upgradable_result,
@@ -161,7 +161,7 @@ pub mod second {
                     })
                 }),
             };
-    
+
             WebSocketRequest {
                 content: request_content,
                 upgrade: request_upgrade,
@@ -171,16 +171,16 @@ pub mod second {
             let http_response = match response.upgradable_result {
                 Ok(upgradable) => {
                     let config = self.config;
-    
+
                     let future = upgradable
                         .on_upgrade
                         .and_then(move |upgraded| {
                             WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
                         })
                         .and_then(move |stream| (response.upgraded_fn)(stream).map(Ok));
-    
+
                     task::spawn(future);
-    
+
                     hyper::Response::builder()
                         .status(StatusCode::SWITCHING_PROTOCOLS)
                         .header("Connection", "Upgrade")
