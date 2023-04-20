@@ -12,13 +12,7 @@ use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug)]
 pub struct JsonApiConverter {
-    pretty_printed: bool,
-}
-
-impl JsonApiConverter {
-    pub fn with_pretty_printed(pretty_printed: bool) -> Self {
-        Self { pretty_printed }
-    }
+    pub pretty_printed: bool,
 }
 
 #[async_trait]

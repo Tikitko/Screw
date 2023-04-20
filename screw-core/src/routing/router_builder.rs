@@ -29,7 +29,7 @@ where
         }
     }
 
-    pub fn route<HFn, HFut>(mut self, route: RouteThirdPart<ORq, ORs, HFn, HFut>) -> Self
+    pub fn route<HFn, HFut>(mut self, route: third::Route<ORq, ORs, HFn, HFut>) -> Self
     where
         HFn: Fn(ORq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = ORs> + Send + 'static,
