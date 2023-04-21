@@ -69,10 +69,7 @@ pub mod second {
             let handler = Arc::new(route.handler);
             let converter = self.converter.clone();
             self.handlers.insert(
-                (
-                    route.method,
-                    self.scope_path.to_owned() + route.path,
-                ),
+                (route.method, self.scope_path.to_owned() + route.path),
                 Box::new(move |request| {
                     let handler = handler.clone();
                     let converter = converter.clone();
