@@ -49,7 +49,7 @@ pub mod second {
     {
         pub(super) scope_path: &'static str,
         pub(super) converter: Arc<C>,
-        pub(super) handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
+        pub(super) handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
     }
 
     impl<ORq, ORs, C> RoutesCollectionBuilder<ORq, ORs, C>
@@ -70,8 +70,8 @@ pub mod second {
             let converter = self.converter.clone();
             self.handlers.insert(
                 (
-                    route.method.clone(),
-                    self.scope_path.to_string() + route.path,
+                    route.method,
+                    self.scope_path.to_owned() + route.path,
                 ),
                 Box::new(move |request| {
                     let handler = handler.clone();

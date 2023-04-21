@@ -7,5 +7,5 @@ where
     ORq: Send + 'static,
     ORs: Send + 'static,
 {
-    pub(super) handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
+    pub(super) handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
 }

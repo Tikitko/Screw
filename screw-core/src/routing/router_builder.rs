@@ -9,7 +9,7 @@ where
     ORq: Send + 'static,
     ORs: Send + 'static,
 {
-    handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
+    handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
     fallback_handler: DFn<ORq, ORs>,
 }
 
@@ -35,7 +35,7 @@ where
         HFut: Future<Output = ORs> + Send + 'static,
     {
         self.handlers.insert(
-            (route.method.clone(), route.path.to_string()),
+            (route.method, route.path.to_owned()),
             route.handler.to_dyn_fn(),
         );
         self

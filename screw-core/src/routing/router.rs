@@ -3,7 +3,7 @@ use screw_components::dyn_fn::DFn;
 use std::collections::HashMap;
 
 pub struct Router<ORq, ORs> {
-    pub(super) handlers: HashMap<(Method, String), DFn<ORq, ORs>>,
+    pub(super) handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
     pub(super) fallback_handler: DFn<ORq, ORs>,
 }
 
@@ -14,20 +14,12 @@ where
     pub async fn process(&self, request: ORq) -> ORs {
         let http_request_ref = request.as_ref();
 
-        let method = http_request_ref.method().clone();
-        let path = http_request_ref.uri().clone().path().to_string();
-
-        let clean_path = format!(
-            "/{}",
-            path.split('/')
-                .filter(|seg| !seg.is_empty())
-                .collect::<Vec<&str>>()
-                .join("/")
-        );
+        let method = http_request_ref.method().to_owned();
+        let path = http_request_ref.uri().path().to_owned();
 
         let handler = self
             .handlers
-            .get(&(method, clean_path))
+            .get(&(&method, path))
             .unwrap_or(&self.fallback_handler);
 
         let response = handler(request).await;
