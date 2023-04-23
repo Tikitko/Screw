@@ -170,7 +170,7 @@ pub mod second {
             let message_type = message_type_result.map_err(ApiChannelReceiverError::Tungstenite)?;
             let generic_message = match message_type {
                 Message::Text(generic_message) => Ok(generic_message),
-                Message::Ping(_) | Message::Pong(_) | Message::Binary(_) => {
+                Message::Ping(_) | Message::Pong(_) | Message::Binary(_) | Message::Frame(_) => {
                     Err(ApiChannelReceiverError::UnsupportedMessage)
                 }
                 Message::Close(_) => Err(ApiChannelReceiverError::Closed),
