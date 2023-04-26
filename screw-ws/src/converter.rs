@@ -1,10 +1,15 @@
-pub use first::*;
-
 use super::*;
+use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
-use hyper::{upgrade, Body, Method, Version};
+use hyper::{upgrade, Body, Method, StatusCode, Version};
+use screw_core::routing::{RequestConverter, ResponseConverter};
+use screw_core::{Request, Response};
+use std::sync::Arc;
+use tokio::task;
 use tokio_tungstenite::tungstenite::error::ProtocolError;
 use tokio_tungstenite::tungstenite::handshake::derive_accept_key;
+use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
+use tokio_tungstenite::WebSocketStream;
 
 fn is_get_method(request: &hyper::Request<Body>) -> bool {
     request.method() == Method::GET
@@ -80,128 +85,106 @@ fn try_upgradable(
     Ok(WebSocketUpgradable { on_upgrade, key })
 }
 
-pub mod first {
-    use super::*;
-    use std::sync::Arc;
-    use tokio_tungstenite::tungstenite::protocol::WebSocketConfig;
+pub struct WebSocketRequestConverter<C>
+where
+    C: Sync + Send + 'static,
+{
+    stream_converter: Arc<C>,
+}
 
-    pub struct WebSocketConverter {
-        config: Option<WebSocketConfig>,
-    }
-
-    impl WebSocketConverter {
-        pub fn with_config(config: Option<WebSocketConfig>) -> Self {
-            Self { config }
-        }
-
-        pub fn and_stream_converter<C>(self, stream_converter: C) -> second::WebSocketConverter<C>
-        where
-            C: Sync + Send + 'static,
-        {
-            second::WebSocketConverter {
-                config: self.config,
-                stream_converter: Arc::new(stream_converter),
-            }
+impl<C> WebSocketRequestConverter<C>
+where
+    C: Sync + Send + 'static,
+{
+    pub fn with_stream_converter(stream_converter: C) -> Self {
+        Self {
+            stream_converter: Arc::new(stream_converter),
         }
     }
 }
 
-pub mod second {
-    use super::*;
-    use futures_util::{FutureExt, TryFutureExt};
-    use hyper::{Body, StatusCode};
-    use screw_core::routing::RequestResponseConverter;
-    use screw_core::{Request, Response};
-    use std::sync::Arc;
-    use tokio::task;
-    use tokio_tungstenite::tungstenite::error::ProtocolError;
-    use tokio_tungstenite::tungstenite::protocol::{Role, WebSocketConfig};
-    use tokio_tungstenite::WebSocketStream;
+#[async_trait]
+impl<C, Content, Stream> RequestConverter<WebSocketRequest<Content, Stream>>
+    for WebSocketRequestConverter<C>
+where
+    C: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
+    Content: WebSocketContent + Send + 'static,
+    Stream: Send + Sync + 'static,
+{
+    type Request = Request;
+    async fn convert_request(
+        &self,
+        mut request: Self::Request,
+    ) -> WebSocketRequest<Content, Stream> {
+        let upgradable_result = try_upgradable(&mut request.http);
+        let (http_parts, _) = request.http.into_parts();
 
-    pub struct WebSocketConverter<C>
-    where
-        C: Sync + Send + 'static,
-    {
-        pub(super) config: Option<WebSocketConfig>,
-        pub(super) stream_converter: Arc<C>,
-    }
+        let request_content = Content::create(WebSocketOriginContent {
+            http_parts,
+            remote_addr: request.remote_addr,
+            extensions: request.extensions,
+        });
 
-    #[async_trait]
-    impl<C, Content, Stream>
-        RequestResponseConverter<WebSocketRequest<Content, Stream>, WebSocketResponse>
-        for WebSocketConverter<C>
-    where
-        C: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
-        Content: WebSocketContent + Send + 'static,
-        Stream: Send + Sync + 'static,
-    {
-        type Request = Request;
-        type Response = Response;
-        async fn convert_request(
-            &self,
-            mut request: Self::Request,
-        ) -> WebSocketRequest<Content, Stream> {
-            let upgradable_result = try_upgradable(&mut request.http);
-            let (http_parts, _) = request.http.into_parts();
+        let stream_converter = self.stream_converter.clone();
+        let request_upgrade = WebSocketUpgrade {
+            upgradable_result,
+            convert_stream_fn: Box::new(move |generic_stream| {
+                let stream_converter = stream_converter.clone();
+                Box::pin(async move {
+                    let stream = stream_converter.convert_stream(generic_stream).await;
+                    stream
+                })
+            }),
+        };
 
-            let request_content = Content::create(WebSocketOriginContent {
-                http_parts,
-                remote_addr: request.remote_addr,
-                extensions: request.extensions,
-            });
-
-            let stream_converter = self.stream_converter.clone();
-            let request_upgrade = WebSocketUpgrade {
-                upgradable_result,
-                convert_stream_fn: Box::new(move |generic_stream| {
-                    let stream_converter = stream_converter.clone();
-                    Box::pin(async move {
-                        let stream = stream_converter.convert_stream(generic_stream).await;
-                        stream
-                    })
-                }),
-            };
-
-            WebSocketRequest {
-                content: request_content,
-                upgrade: request_upgrade,
-            }
+        WebSocketRequest {
+            content: request_content,
+            upgrade: request_upgrade,
         }
-        async fn convert_response(&self, response: WebSocketResponse) -> Self::Response {
-            let http_response = match response.upgradable_result {
-                Ok(upgradable) => {
-                    let config = self.config;
+    }
+}
 
-                    let future = upgradable
-                        .on_upgrade
-                        .and_then(move |upgraded| {
-                            WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
-                        })
-                        .and_then(move |stream| (response.upgraded_fn)(stream).map(Ok));
+pub struct WebSocketResponseConverter {
+    pub config: Option<WebSocketConfig>,
+}
 
-                    task::spawn(future);
+#[async_trait]
+impl ResponseConverter<WebSocketResponse> for WebSocketResponseConverter {
+    type Response = Response;
+    async fn convert_response(&self, response: WebSocketResponse) -> Self::Response {
+        let http_response = match response.upgradable_result {
+            Ok(upgradable) => {
+                let config = self.config;
 
-                    hyper::Response::builder()
-                        .status(StatusCode::SWITCHING_PROTOCOLS)
-                        .header("Connection", "Upgrade")
-                        .header("Upgrade", "websocket")
-                        .header("Sec-WebSocket-Accept", upgradable.key)
-                        .body(Body::empty())
-                        .unwrap()
-                }
-                Err(protocol_error) => match protocol_error {
-                    ProtocolError::WrongHttpMethod => {
-                        panic!("incorrect method for WebSocket, should be GET")
-                    }
-                    _ => hyper::Response::builder()
-                        .status(StatusCode::BAD_REQUEST)
-                        .body(Body::empty())
-                        .unwrap(),
-                },
-            };
-            Response {
-                http: http_response,
+                let future = upgradable
+                    .on_upgrade
+                    .and_then(move |upgraded| {
+                        WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
+                    })
+                    .and_then(move |stream| (response.upgraded_fn)(stream).map(Ok));
+
+                task::spawn(future);
+
+                hyper::Response::builder()
+                    .status(StatusCode::SWITCHING_PROTOCOLS)
+                    .header("Connection", "Upgrade")
+                    .header("Upgrade", "websocket")
+                    .header("Sec-WebSocket-Accept", upgradable.key)
+                    .body(Body::empty())
+                    .unwrap()
             }
+            Err(protocol_error) => match protocol_error {
+                ProtocolError::WrongHttpMethod => {
+                    panic!("incorrect method for WebSocket, should be GET")
+                }
+                _ => hyper::Response::builder()
+                    .status(StatusCode::BAD_REQUEST)
+                    .body(Body::empty())
+                    .unwrap(),
+            },
+        };
+        Response {
+            http: http_response,
         }
     }
 }
