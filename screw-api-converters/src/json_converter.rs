@@ -6,26 +6,19 @@ use screw_api::{
     ApiResponseContentFailure, ApiResponseContentSuccess,
 };
 use screw_components::dyn_result::DResult;
-use screw_core::routing::RequestResponseConverter;
+use screw_core::routing::{RequestConverter, ResponseConverter};
 use screw_core::{Request, Response};
 use serde::Deserialize;
 
 #[derive(Clone, Copy, Debug)]
-pub struct JsonApiConverter {
-    pub pretty_printed: bool,
-}
+pub struct JsonApiRequestConverter;
 
 #[async_trait]
-impl<RqContent, RsContentSuccess, RsContentFailure>
-    RequestResponseConverter<ApiRequest<RqContent>, ApiResponse<RsContentSuccess, RsContentFailure>>
-    for JsonApiConverter
+impl<RqContent> RequestConverter<ApiRequest<RqContent>> for JsonApiRequestConverter
 where
     RqContent: ApiRequestContent + Send + 'static,
-    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
-    RsContentFailure: ApiResponseContentFailure + Send + 'static,
 {
     type Request = Request;
-    type Response = Response;
     async fn convert_request(&self, request: Self::Request) -> ApiRequest<RqContent> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
@@ -59,6 +52,21 @@ where
             content: request_content,
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct JsonApiResponseConverter {
+    pub pretty_printed: bool,
+}
+
+#[async_trait]
+impl<RsContentSuccess, RsContentFailure>
+    ResponseConverter<ApiResponse<RsContentSuccess, RsContentFailure>> for JsonApiResponseConverter
+where
+    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
+    RsContentFailure: ApiResponseContentFailure + Send + 'static,
+{
+    type Response = Response;
     async fn convert_response(
         &self,
         api_response: ApiResponse<RsContentSuccess, RsContentFailure>,
@@ -104,8 +112,14 @@ pub mod ws {
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;
 
+    #[derive(Clone, Copy, Debug)]
+    pub struct JsonApiWebSocketConverter {
+        pub pretty_printed: bool,
+    }
+
     #[async_trait]
-    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>> for JsonApiConverter
+    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>>
+        for JsonApiWebSocketConverter
     where
         Send: Serialize + std::marker::Send + 'static,
         Receive: for<'de> Deserialize<'de> + std::marker::Send + 'static,
