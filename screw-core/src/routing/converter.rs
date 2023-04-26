@@ -34,13 +34,13 @@ where
     }
 }
 
-pub struct MiddlewareResponseConverter<C, HFn> {
+pub struct MiddlewareConverter<C, HFn> {
     pub converter: C,
     pub handler: HFn,
 }
 
 #[async_trait]
-impl<Rq, C, HFn, HFut> RequestConverter<Rq> for MiddlewareRequestConverter<C, HFn>
+impl<Rq, C, HFn, HFut> RequestConverter<Rq> for MiddlewareConverter<C, HFn>
 where
     Rq: Send + 'static,
     C: RequestConverter<Rq> + Send + Sync + 'static,
@@ -56,13 +56,8 @@ where
     }
 }
 
-pub struct MiddlewareRequestConverter<C, HFn> {
-    pub converter: C,
-    pub handler: HFn,
-}
-
 #[async_trait]
-impl<Rs, C, HFn, HFut> ResponseConverter<Rs> for MiddlewareResponseConverter<C, HFn>
+impl<Rs, C, HFn, HFut> ResponseConverter<Rs> for MiddlewareConverter<C, HFn>
 where
     Rs: Send + 'static,
     C: ResponseConverter<Rs> + Send + Sync + 'static,
