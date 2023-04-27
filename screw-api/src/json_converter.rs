@@ -1,10 +1,6 @@
 use super::*;
 use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
-use screw_api::{
-    ApiRequest, ApiRequestContent, ApiRequestOriginContent, ApiResponse, ApiResponseContentBase,
-    ApiResponseContentFailure, ApiResponseContentSuccess,
-};
 use screw_components::dyn_result::DResult;
 use screw_core::routing::{RequestConverter, ResponseConverter};
 use screw_core::{Request, Response};
@@ -107,7 +103,6 @@ pub mod ws {
     use super::*;
     use futures::{future, StreamExt};
     use hyper::upgrade::Upgraded;
-    use screw_api::{ApiChannel, ApiChannelReceiver, ApiChannelSender};
     use screw_ws::WebSocketStreamConverter;
     use serde::Serialize;
     use tokio_tungstenite::WebSocketStream;

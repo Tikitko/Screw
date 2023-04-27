@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "screw-api",
-    "screw-api-converters",
     "screw-components",
     "screw-core",
     "screw-ws"
