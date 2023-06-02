@@ -1,9 +1,5 @@
-pub type Router<ORq, ORs> = first::Router<ORq, ORs>;
-pub type FRouter<ORq, ORs> = second::Router<ORq, ORs>;
-
 pub mod first {
     use super::super::*;
-    use super::*;
     use screw_components::dyn_fn::{AsDynFn, DFn};
     use std::collections::HashMap;
     use std::future::Future;
@@ -31,15 +27,15 @@ pub mod first {
             }
         }
 
-        pub fn and_routes<F>(self, handler: F) -> FRouter<ORq, ORs>
+        pub fn and_routes<F>(self, handler: F) -> router::second::Router<ORq, ORs>
         where
-            F: FnOnce(Routes<ORq, ORs>) -> Routes<ORq, ORs>,
+            F: FnOnce(routes::Routes<ORq, ORs>) -> routes::Routes<ORq, ORs>,
         {
-            let Routes { handlers, .. } = handler(Routes {
+            let routes::Routes { handlers, .. } = handler(routes::Routes {
                 scope_path: "".to_owned(),
                 handlers: HashMap::default(),
             });
-            FRouter {
+            router::second::Router {
                 handlers,
                 fallback_handler: self.fallback_handler,
             }

@@ -113,8 +113,8 @@ where
 
     pub fn route<Rq, Rs, HFn, HFut>(self, route: route::third::Route<Rq, Rs, HFn, HFut>) -> Self
     where
-        RqC: RequestConverter<Rq, Request = ORq>,
-        RsC: ResponseConverter<Rs, Response = ORs>,
+        RqC: converter::RequestConverter<Rq, Request = ORq>,
+        RsC: converter::ResponseConverter<Rs, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,

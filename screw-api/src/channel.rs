@@ -1,5 +1,3 @@
-pub use first::*;
-
 use futures::stream::SplitStream;
 use futures::{SinkExt, StreamExt};
 use hyper::http::request::Parts;

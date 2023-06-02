@@ -1,8 +1,9 @@
 use super::*;
 use hyper::http::request::Parts;
 use hyper::{header, Body, StatusCode};
+use response::ApiResponseContentBase;
 use screw_components::dyn_result::DResult;
-use screw_core::routing::{RequestConverter, ResponseConverter};
+use screw_core::routing::converter::{RequestConverter, ResponseConverter};
 use screw_core::{Request, Response};
 use serde::Deserialize;
 
@@ -10,12 +11,12 @@ use serde::Deserialize;
 pub struct JsonApiRequestConverter;
 
 #[async_trait]
-impl<RqContent> RequestConverter<ApiRequest<RqContent>> for JsonApiRequestConverter
+impl<RqContent> RequestConverter<request::ApiRequest<RqContent>> for JsonApiRequestConverter
 where
-    RqContent: ApiRequestContent + Send + 'static,
+    RqContent: request::ApiRequestContent + Send + 'static,
 {
     type Request = Request;
-    async fn convert_request(&self, request: Self::Request) -> ApiRequest<RqContent> {
+    async fn convert_request(&self, request: Self::Request) -> request::ApiRequest<RqContent> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
             for<'de> Data: Deserialize<'de>,
@@ -37,14 +38,14 @@ where
         let (http_parts, http_body) = request.http.into_parts();
         let data_result = convert(&http_parts, http_body).await;
 
-        let request_content = RqContent::create(ApiRequestOriginContent {
+        let request_content = RqContent::create(request::ApiRequestOriginContent {
             http_parts,
             remote_addr: request.remote_addr,
             extensions: request.extensions,
             data_result,
         });
 
-        ApiRequest {
+        request::ApiRequest {
             content: request_content,
         }
     }
@@ -57,15 +58,16 @@ pub struct JsonApiResponseConverter {
 
 #[async_trait]
 impl<RsContentSuccess, RsContentFailure>
-    ResponseConverter<ApiResponse<RsContentSuccess, RsContentFailure>> for JsonApiResponseConverter
+    ResponseConverter<response::ApiResponse<RsContentSuccess, RsContentFailure>>
+    for JsonApiResponseConverter
 where
-    RsContentSuccess: ApiResponseContentSuccess + Send + 'static,
-    RsContentFailure: ApiResponseContentFailure + Send + 'static,
+    RsContentSuccess: response::ApiResponseContentSuccess + Send + 'static,
+    RsContentFailure: response::ApiResponseContentFailure + Send + 'static,
 {
     type Response = Response;
     async fn convert_response(
         &self,
-        api_response: ApiResponse<RsContentSuccess, RsContentFailure>,
+        api_response: response::ApiResponse<RsContentSuccess, RsContentFailure>,
     ) -> Self::Response {
         let http_response_result: DResult<hyper::Response<Body>> = (|| {
             let content = api_response.content;
@@ -113,7 +115,7 @@ pub mod ws {
     }
 
     #[async_trait]
-    impl<Send, Receive> WebSocketStreamConverter<ApiChannel<Send, Receive>>
+    impl<Send, Receive> WebSocketStreamConverter<channel::ApiChannel<Send, Receive>>
         for JsonApiWebSocketConverter
     where
         Send: Serialize + std::marker::Send + 'static,
@@ -122,29 +124,27 @@ pub mod ws {
         async fn convert_stream(
             &self,
             stream: WebSocketStream<Upgraded>,
-        ) -> ApiChannel<Send, Receive> {
+        ) -> channel::ApiChannel<Send, Receive> {
             let (sink, stream) = stream.split();
             let pretty_printed = self.pretty_printed;
 
-            let sender = ApiChannelSender::with_sink(sink).and_convert_typed_message_fn(
-                move |typed_message| {
+            let sender = channel::first::ApiChannelSender::with_sink(sink)
+                .and_convert_typed_message_fn(move |typed_message| {
                     let generic_message_result = if pretty_printed {
                         serde_json::to_string_pretty(&typed_message)
                     } else {
                         serde_json::to_string(&typed_message)
                     };
                     future::ready(generic_message_result.map_err(|e| e.into()))
-                },
-            );
+                });
 
-            let receiver = ApiChannelReceiver::with_stream(stream).and_convert_generic_message_fn(
-                |generic_message| {
+            let receiver = channel::first::ApiChannelReceiver::with_stream(stream)
+                .and_convert_generic_message_fn(|generic_message| {
                     let typed_message_result = serde_json::from_str(generic_message.as_str());
                     future::ready(typed_message_result.map_err(|e| e.into()))
-                },
-            );
+                });
 
-            ApiChannel { sender, receiver }
+            channel::ApiChannel { sender, receiver }
         }
     }
 }

@@ -2,7 +2,7 @@ use super::*;
 use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
-use screw_core::routing::{RequestConverter, ResponseConverter};
+use screw_core::routing::converter::{RequestConverter, ResponseConverter};
 use screw_core::{Request, Response};
 use std::sync::Arc;
 use tokio::task;

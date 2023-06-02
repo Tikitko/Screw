@@ -15,11 +15,11 @@ pub mod first {
     use std::sync::Arc;
 
     pub struct ResponderFactory {
-        router: Arc<routing::FRouter<Request, Response>>,
+        router: Arc<routing::router::second::Router<Request, Response>>,
     }
 
     impl ResponderFactory {
-        pub fn with_router(router: routing::FRouter<Request, Response>) -> Self {
+        pub fn with_router(router: routing::router::second::Router<Request, Response>) -> Self {
             Self {
                 router: Arc::new(router),
             }
@@ -41,7 +41,7 @@ pub mod second {
     use std::sync::Arc;
 
     pub struct ResponderFactory {
-        pub(super) router: Arc<routing::FRouter<Request, Response>>,
+        pub(super) router: Arc<routing::router::second::Router<Request, Response>>,
         pub(super) extensions: Arc<Extensions>,
     }
 
@@ -59,7 +59,7 @@ pub mod second {
 
 pub struct Responder {
     remote_addr: SocketAddr,
-    router: Arc<routing::FRouter<Request, Response>>,
+    router: Arc<routing::router::second::Router<Request, Response>>,
     extensions: Arc<Extensions>,
 }
 
