@@ -1,4 +1,5 @@
-pub use first::*;
+pub type ResponderFactory = first::ResponderFactory;
+pub type FResponderFactory = second::ResponderFactory;
 
 use super::*;
 use hyper::http::Extensions;
@@ -14,11 +15,11 @@ pub mod first {
     use std::sync::Arc;
 
     pub struct ResponderFactory {
-        router: Arc<routing::Router<Request, Response>>,
+        router: Arc<routing::FRouter<Request, Response>>,
     }
 
     impl ResponderFactory {
-        pub fn with_router(router: routing::Router<Request, Response>) -> Self {
+        pub fn with_router(router: routing::FRouter<Request, Response>) -> Self {
             Self {
                 router: Arc::new(router),
             }
@@ -40,7 +41,7 @@ pub mod second {
     use std::sync::Arc;
 
     pub struct ResponderFactory {
-        pub(super) router: Arc<routing::Router<Request, Response>>,
+        pub(super) router: Arc<routing::FRouter<Request, Response>>,
         pub(super) extensions: Arc<Extensions>,
     }
 
@@ -58,7 +59,7 @@ pub mod second {
 
 pub struct Responder {
     remote_addr: SocketAddr,
-    router: Arc<routing::Router<Request, Response>>,
+    router: Arc<routing::FRouter<Request, Response>>,
     extensions: Arc<Extensions>,
 }
 

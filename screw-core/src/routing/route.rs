@@ -1,4 +1,5 @@
-pub use first::*;
+pub type Route = first::Route;
+pub type FRoute<Rq, Rs, HFn, HFut> = third::Route<Rq, Rs, HFn, HFut>;
 
 pub mod first {
     use super::*;
