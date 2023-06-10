@@ -85,18 +85,18 @@ fn try_upgradable(
     Ok(WebSocketUpgradable { on_upgrade, key })
 }
 
-pub struct WebSocketRequestConverter<C>
+pub struct WebSocketRequestConverter<StreamConverter>
 where
-    C: Sync + Send + 'static,
+    StreamConverter: Sync + Send + 'static,
 {
-    stream_converter: Arc<C>,
+    stream_converter: Arc<StreamConverter>,
 }
 
-impl<C> WebSocketRequestConverter<C>
+impl<StreamConverter> WebSocketRequestConverter<StreamConverter>
 where
-    C: Sync + Send + 'static,
+    StreamConverter: Sync + Send + 'static,
 {
-    pub fn with_stream_converter(stream_converter: C) -> Self {
+    pub fn with_stream_converter(stream_converter: StreamConverter) -> Self {
         Self {
             stream_converter: Arc::new(stream_converter),
         }
@@ -104,18 +104,19 @@ where
 }
 
 #[async_trait]
-impl<C, Content, Stream> RequestConverter<WebSocketRequest<Content, Stream>>
-    for WebSocketRequestConverter<C>
+impl<StreamConverter, Content, Stream, Extensions> RequestConverter<WebSocketRequest<Content, Stream, Extensions>>
+    for WebSocketRequestConverter<StreamConverter>
 where
-    C: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
-    Content: WebSocketContent + Send + 'static,
+    StreamConverter: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
+    Content: WebSocketContent<Extensions> + Send + 'static,
     Stream: Send + Sync + 'static,
+    Extensions: Sync + Send + 'static,
 {
-    type Request = Request;
+    type Request = Request<Extensions>;
     async fn convert_request(
         &self,
         mut request: Self::Request,
-    ) -> WebSocketRequest<Content, Stream> {
+    ) -> WebSocketRequest<Content, Stream, Extensions> {
         let upgradable_result = try_upgradable(&mut request.http);
         let (http_parts, _) = request.http.into_parts();
 
@@ -140,6 +141,7 @@ where
         WebSocketRequest {
             content: request_content,
             upgrade: request_upgrade,
+            _p_e: Default::default(),
         }
     }
 }

@@ -1,8 +1,7 @@
-pub type ResponderFactory = first::ResponderFactory;
-pub type FResponderFactory = second::ResponderFactory;
+pub type ResponderFactory<Extensions> = first::ResponderFactory<Extensions>;
+pub type FResponderFactory<Extensions> = second::ResponderFactory<Extensions>;
 
 use super::*;
-use hyper::http::Extensions;
 use hyper::Body;
 use std::future::Future;
 use std::net::SocketAddr;
@@ -11,21 +10,26 @@ use std::sync::Arc;
 
 pub mod first {
     use super::*;
-    use hyper::http::Extensions;
     use std::sync::Arc;
 
-    pub struct ResponderFactory {
-        router: Arc<routing::router::second::Router<Request, Response>>,
+    pub struct ResponderFactory<Extensions>
+    where
+        Extensions: Sync + Send + 'static
+    {
+        router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
     }
 
-    impl ResponderFactory {
-        pub fn with_router(router: routing::router::second::Router<Request, Response>) -> Self {
+    impl<Extensions> ResponderFactory<Extensions>
+    where
+        Extensions: Sync + Send + 'static
+    {
+        pub fn with_router(router: routing::router::second::Router<Request<Extensions>, Response>) -> Self {
             Self {
                 router: Arc::new(router),
             }
         }
 
-        pub fn and_extensions(self, extensions: Extensions) -> second::ResponderFactory {
+        pub fn and_extensions(self, extensions: Extensions) -> second::ResponderFactory<Extensions> {
             second::ResponderFactory {
                 router: self.router,
                 extensions: Arc::new(extensions),
@@ -36,17 +40,22 @@ pub mod first {
 
 pub mod second {
     use super::*;
-    use hyper::http::Extensions;
     use std::net::SocketAddr;
     use std::sync::Arc;
 
-    pub struct ResponderFactory {
-        pub(super) router: Arc<routing::router::second::Router<Request, Response>>,
+    pub struct ResponderFactory<Extensions>
+    where
+        Extensions: Sync + Send + 'static
+    {
+        pub(super) router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
         pub(super) extensions: Arc<Extensions>,
     }
 
-    impl server::ResponderFactory for ResponderFactory {
-        type Responder = Responder;
+    impl<Extensions> server::ResponderFactory for ResponderFactory<Extensions>
+    where
+        Extensions: Sync + Send + 'static
+    {
+        type Responder = Responder<Extensions>;
         fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {
             Responder {
                 remote_addr,
@@ -57,13 +66,19 @@ pub mod second {
     }
 }
 
-pub struct Responder {
+pub struct Responder<Extensions>
+where
+    Extensions: Sync + Send + 'static
+{
     remote_addr: SocketAddr,
-    router: Arc<routing::router::second::Router<Request, Response>>,
+    router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
     extensions: Arc<Extensions>,
 }
 
-impl server::Responder for Responder {
+impl<Extensions> server::Responder for Responder<Extensions>
+where
+    Extensions: Sync + Send + 'static
+{
     type ResponseFuture = Pin<Box<dyn Future<Output = hyper::Response<Body>> + Send>>;
 
     fn response(&mut self, http_request: hyper::Request<Body>) -> Self::ResponseFuture {

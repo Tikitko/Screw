@@ -11,12 +11,13 @@ use serde::Deserialize;
 pub struct JsonApiRequestConverter;
 
 #[async_trait]
-impl<RqContent> RequestConverter<request::ApiRequest<RqContent>> for JsonApiRequestConverter
+impl<RqContent, Extensions> RequestConverter<request::ApiRequest<RqContent, Extensions>> for JsonApiRequestConverter
 where
-    RqContent: request::ApiRequestContent + Send + 'static,
+    RqContent: request::ApiRequestContent<Extensions> + Send + 'static,
+    Extensions: Sync + Send + 'static,
 {
-    type Request = Request;
-    async fn convert_request(&self, request: Self::Request) -> request::ApiRequest<RqContent> {
+    type Request = Request<Extensions>;
+    async fn convert_request(&self, request: Self::Request) -> request::ApiRequest<RqContent, Extensions> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
             for<'de> Data: Deserialize<'de>,
@@ -47,6 +48,7 @@ where
 
         request::ApiRequest {
             content: request_content,
+            _p_e: Default::default(),
         }
     }
 }

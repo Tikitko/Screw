@@ -1,26 +1,26 @@
 use super::*;
 use hyper::http::request::Parts;
-use hyper::http::Extensions;
 use hyper::upgrade::{OnUpgrade, Upgraded};
 use screw_components::dyn_fn::DFn;
 use std::future::Future;
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio_tungstenite::tungstenite::error::ProtocolError;
 use tokio_tungstenite::WebSocketStream;
 
-pub struct WebSocketOriginContent {
+pub struct WebSocketOriginContent<Extensions> {
     pub http_parts: Parts,
     pub remote_addr: SocketAddr,
     pub extensions: Arc<Extensions>,
 }
 
-pub trait WebSocketContent {
-    fn create(origin_content: WebSocketOriginContent) -> Self;
+pub trait WebSocketContent<Extensions> {
+    fn create(origin_content: WebSocketOriginContent<Extensions>) -> Self;
 }
 
-impl WebSocketContent for () {
-    fn create(_origin_content: WebSocketOriginContent) -> Self {}
+impl<Extensions> WebSocketContent<Extensions> for () {
+    fn create(_origin_content: WebSocketOriginContent<Extensions>) -> Self {}
 }
 
 pub(super) struct WebSocketUpgradable {
@@ -59,18 +59,19 @@ where
     }
 }
 
-pub struct WebSocketRequest<Content, Stream>
+pub struct WebSocketRequest<Content, Stream, Extensions>
 where
-    Content: WebSocketContent + Send + 'static,
+    Content: WebSocketContent<Extensions> + Send + 'static,
     Stream: Send + Sync + 'static,
 {
     pub(super) content: Content,
     pub(super) upgrade: WebSocketUpgrade<Stream>,
+    pub(super) _p_e: PhantomData<Extensions>,
 }
 
-impl<Content, Stream> WebSocketRequest<Content, Stream>
+impl<Content, Stream, Extensions> WebSocketRequest<Content, Stream, Extensions>
 where
-    Content: WebSocketContent + Send + 'static,
+    Content: WebSocketContent<Extensions> + Send + 'static,
     Stream: Send + Sync + 'static,
 {
     pub fn split(self) -> (Content, WebSocketUpgrade<Stream>) {
