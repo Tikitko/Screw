@@ -4,6 +4,7 @@ use hyper::{body, header, Body, StatusCode};
 use response::ApiResponseContentBase;
 use screw_components::dyn_result::DResult;
 use screw_core::routing::converter::{RequestConverter, ResponseConverter};
+use screw_core::routing::request::DirectedRequest;
 use screw_core::{Request, Response};
 use serde::Deserialize;
 
@@ -11,13 +12,17 @@ use serde::Deserialize;
 pub struct XmlApiRequestConverter;
 
 #[async_trait]
-impl<RqContent, Extensions> RequestConverter<request::ApiRequest<RqContent, Extensions>,> for XmlApiRequestConverter
+impl<RqContent, Extensions> RequestConverter<request::ApiRequest<RqContent, Extensions>>
+    for XmlApiRequestConverter
 where
     RqContent: request::ApiRequestContent<Extensions> + Send + 'static,
     Extensions: Sync + Send + 'static,
 {
-    type Request = Request<Extensions>;
-    async fn convert_request(&self, request: Self::Request) -> request::ApiRequest<RqContent, Extensions> {
+    type Request = DirectedRequest<Request<Extensions>>;
+    async fn convert_request(
+        &self,
+        request: Self::Request,
+    ) -> request::ApiRequest<RqContent, Extensions> {
         async fn convert<Data>(parts: &Parts, body: Body) -> DResult<Data>
         where
             for<'de> Data: Deserialize<'de>,
@@ -37,13 +42,15 @@ where
             Ok(data)
         }
 
-        let (http_parts, http_body) = request.http.into_parts();
+        let (http_parts, http_body) = request.origin.http.into_parts();
         let data_result = convert(&http_parts, http_body).await;
 
         let request_content = RqContent::create(request::ApiRequestOriginContent {
+            path: request.path,
+            query: request.query,
             http_parts,
-            remote_addr: request.remote_addr,
-            extensions: request.extensions,
+            remote_addr: request.origin.remote_addr,
+            extensions: request.origin.extensions,
             data_result,
         });
 

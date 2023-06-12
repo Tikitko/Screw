@@ -3,6 +3,7 @@ use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
 use screw_core::routing::converter::{RequestConverter, ResponseConverter};
+use screw_core::routing::request::DirectedRequest;
 use screw_core::{Request, Response};
 use std::sync::Arc;
 use tokio::task;
@@ -104,7 +105,8 @@ where
 }
 
 #[async_trait]
-impl<StreamConverter, Content, Stream, Extensions> RequestConverter<WebSocketRequest<Content, Stream, Extensions>>
+impl<StreamConverter, Content, Stream, Extensions>
+    RequestConverter<WebSocketRequest<Content, Stream, Extensions>>
     for WebSocketRequestConverter<StreamConverter>
 where
     StreamConverter: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
@@ -112,18 +114,19 @@ where
     Stream: Send + Sync + 'static,
     Extensions: Sync + Send + 'static,
 {
-    type Request = Request<Extensions>;
+    type Request = DirectedRequest<Request<Extensions>>;
     async fn convert_request(
         &self,
         mut request: Self::Request,
     ) -> WebSocketRequest<Content, Stream, Extensions> {
-        let upgradable_result = try_upgradable(&mut request.http);
-        let (http_parts, _) = request.http.into_parts();
+        let upgradable_result = try_upgradable(&mut request.origin.http);
 
         let request_content = Content::create(WebSocketOriginContent {
-            http_parts,
-            remote_addr: request.remote_addr,
-            extensions: request.extensions,
+            path: request.path,
+            query: request.query,
+            http_parts: request.origin.http.into_parts().0,
+            remote_addr: request.origin.remote_addr,
+            extensions: request.origin.extensions,
         });
 
         let stream_converter = self.stream_converter.clone();

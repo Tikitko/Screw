@@ -2,6 +2,8 @@ use super::*;
 use hyper::http::request::Parts;
 use hyper::upgrade::{OnUpgrade, Upgraded};
 use screw_components::dyn_fn::DFn;
+use screw_core::routing::Path;
+use std::collections::HashMap;
 use std::future::Future;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
@@ -10,6 +12,8 @@ use tokio_tungstenite::tungstenite::error::ProtocolError;
 use tokio_tungstenite::WebSocketStream;
 
 pub struct WebSocketOriginContent<Extensions> {
+    pub path: Path<String>,
+    pub query: HashMap<String, String>,
     pub http_parts: Parts,
     pub remote_addr: SocketAddr,
     pub extensions: Arc<Extensions>,

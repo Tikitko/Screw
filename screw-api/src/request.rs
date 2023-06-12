@@ -1,6 +1,8 @@
 use hyper::http::request::Parts;
 use screw_components::dyn_result::DResult;
+use screw_core::routing::Path;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -9,6 +11,8 @@ pub struct ApiRequestOriginContent<Data, Extensions>
 where
     Data: for<'de> Deserialize<'de>,
 {
+    pub path: Path<String>,
+    pub query: HashMap<String, String>,
     pub http_parts: Parts,
     pub remote_addr: SocketAddr,
     pub extensions: Arc<Extensions>,

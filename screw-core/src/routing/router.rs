@@ -29,7 +29,9 @@ pub mod first {
 
         pub fn and_routes<F>(self, handler: F) -> router::second::Router<ORq, ORs>
         where
-            F: FnOnce(routes::Routes<request::DirectedRequest<ORq>, ORs>) -> routes::Routes<request::DirectedRequest<ORq>, ORs>,
+            F: FnOnce(
+                routes::Routes<request::DirectedRequest<ORq>, ORs>,
+            ) -> routes::Routes<request::DirectedRequest<ORq>, ORs>,
         {
             let routes::Routes { handlers, .. } = handler(routes::Routes {
                 scope_path: "".to_owned(),
@@ -60,7 +62,8 @@ pub mod second {
         ORq: Send + 'static,
         ORs: Send + 'static,
     {
-        pub(super) inner: actix_router::Router<HashMap<&'static Method, DFn<request::DirectedRequest<ORq>, ORs>>>,
+        pub(super) inner:
+            actix_router::Router<HashMap<&'static Method, DFn<request::DirectedRequest<ORq>, ORs>>>,
         pub(super) fallback_handler: DFn<request::DirectedRequest<ORq>, ORs>,
     }
 

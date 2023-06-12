@@ -83,7 +83,7 @@ where
     scope_path: String,
     request_converter: Arc<RqC>,
     response_converter: Arc<RsC>,
-    handlers: HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>
+    handlers: HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
 }
 
 impl<ORq, ORs, RqC, RsC> ConvertableRoutes<ORq, ORs, RqC, RsC>

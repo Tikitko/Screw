@@ -1,5 +1,7 @@
 pub mod converter;
+pub mod request;
 pub mod route;
 pub mod router;
 pub mod routes;
-pub mod request;
+
+pub use actix_router::Path;

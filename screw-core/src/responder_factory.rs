@@ -14,22 +14,27 @@ pub mod first {
 
     pub struct ResponderFactory<Extensions>
     where
-        Extensions: Sync + Send + 'static
+        Extensions: Sync + Send + 'static,
     {
         router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
     }
 
     impl<Extensions> ResponderFactory<Extensions>
     where
-        Extensions: Sync + Send + 'static
+        Extensions: Sync + Send + 'static,
     {
-        pub fn with_router(router: routing::router::second::Router<Request<Extensions>, Response>) -> Self {
+        pub fn with_router(
+            router: routing::router::second::Router<Request<Extensions>, Response>,
+        ) -> Self {
             Self {
                 router: Arc::new(router),
             }
         }
 
-        pub fn and_extensions(self, extensions: Extensions) -> second::ResponderFactory<Extensions> {
+        pub fn and_extensions(
+            self,
+            extensions: Extensions,
+        ) -> second::ResponderFactory<Extensions> {
             second::ResponderFactory {
                 router: self.router,
                 extensions: Arc::new(extensions),
@@ -45,7 +50,7 @@ pub mod second {
 
     pub struct ResponderFactory<Extensions>
     where
-        Extensions: Sync + Send + 'static
+        Extensions: Sync + Send + 'static,
     {
         pub(super) router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
         pub(super) extensions: Arc<Extensions>,
@@ -53,7 +58,7 @@ pub mod second {
 
     impl<Extensions> server::ResponderFactory for ResponderFactory<Extensions>
     where
-        Extensions: Sync + Send + 'static
+        Extensions: Sync + Send + 'static,
     {
         type Responder = Responder<Extensions>;
         fn make_responder(&self, remote_addr: SocketAddr) -> Self::Responder {
@@ -68,7 +73,7 @@ pub mod second {
 
 pub struct Responder<Extensions>
 where
-    Extensions: Sync + Send + 'static
+    Extensions: Sync + Send + 'static,
 {
     remote_addr: SocketAddr,
     router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
@@ -77,7 +82,7 @@ where
 
 impl<Extensions> server::Responder for Responder<Extensions>
 where
-    Extensions: Sync + Send + 'static
+    Extensions: Sync + Send + 'static,
 {
     type ResponseFuture = Pin<Box<dyn Future<Output = hyper::Response<Body>> + Send>>;
 
