@@ -9,7 +9,7 @@ where
     ORs: Send + 'static,
 {
     pub(super) scope_path: String,
-    pub(super) handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
+    pub(super) handlers: HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
 }
 
 impl<ORq, ORs> Routes<ORq, ORs>
@@ -83,7 +83,7 @@ where
     scope_path: String,
     request_converter: Arc<RqC>,
     response_converter: Arc<RsC>,
-    handlers: HashMap<(&'static Method, String), DFn<ORq, ORs>>,
+    handlers: HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>
 }
 
 impl<ORq, ORs, RqC, RsC> ConvertableRoutes<ORq, ORs, RqC, RsC>
@@ -130,8 +130,10 @@ where
             let handler = Arc::new(route.handler);
             let request_converter = request_converter.clone();
             let response_converter = response_converter.clone();
-            handlers.insert(
-                (route.method, scope_path.to_owned() + route.path),
+            let path = scope_path.to_owned() + route.path;
+            let mut method_handlers = handlers.remove(&path).unwrap_or_default();
+            method_handlers.insert(
+                route.method,
                 Box::new(move |request| {
                     let handler = handler.clone();
                     let request_converter = request_converter.clone();
@@ -145,6 +147,7 @@ where
                     })
                 }),
             );
+            handlers.insert(path, method_handlers);
         }
         Self {
             scope_path,

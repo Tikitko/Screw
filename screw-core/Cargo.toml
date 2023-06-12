@@ -7,3 +7,5 @@ edition = "2021"
 screw-components = { path = "../screw-components" }
 hyper = { version = "0.14.26", features = ["full"] }
 async-trait = { version = "0.1.68" }
+actix-router = "0.5.1"
+url = "2.3.1"
