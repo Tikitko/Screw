@@ -46,7 +46,7 @@ where
         }
     }
 
-    pub fn scoped_convertable<Rq, Rs, NRq, NRs, NRqC, NRsC, F>(
+    pub fn scoped_convertable<Rq, Rs, NRqC, NRsC, F>(
         self,
         scope_path: &'static str,
         converters: Converters<NRqC, NRsC>,
@@ -57,10 +57,8 @@ where
         RsC: converter::ResponseConverter<Rs, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
-        NRqC: converter::RequestConverter<NRq, Request = Rq> + Send + Sync + 'static,
-        NRsC: converter::ResponseConverter<NRs, Response = Rs> + Send + Sync + 'static,
-        NRq: Send + 'static,
-        NRs: Send + 'static,
+        NRqC: Send + Sync + 'static,
+        NRsC: Send + Sync + 'static,
         F: FnOnce(Routes<Rq, Rs, NRqC, NRsC>) -> Routes<Rq, Rs, NRqC, NRsC>,
     {
         let Routes {
@@ -96,7 +94,7 @@ where
         }
     }
 
-    pub fn convertable<Rq, Rs, NRq, NRs, NRqC, NRsC, F>(
+    pub fn convertable<Rq, Rs, NRqC, NRsC, F>(
         self,
         converters: Converters<NRqC, NRsC>,
         handler: F,
@@ -106,10 +104,8 @@ where
         RsC: converter::ResponseConverter<Rs, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
-        NRqC: converter::RequestConverter<NRq, Request = Rq> + Send + Sync + 'static,
-        NRsC: converter::ResponseConverter<NRs, Response = Rs> + Send + Sync + 'static,
-        NRq: Send + 'static,
-        NRs: Send + 'static,
+        NRqC: Send + Sync + 'static,
+        NRsC: Send + Sync + 'static,
         F: FnOnce(Routes<Rq, Rs, NRqC, NRsC>) -> Routes<Rq, Rs, NRqC, NRsC>,
     {
         self.scoped_convertable("", converters, handler)
