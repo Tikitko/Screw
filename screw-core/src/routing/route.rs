@@ -11,10 +11,10 @@ pub mod first {
             Self { method }
         }
 
-        pub fn and_path(self, path: &'static str) -> second::Route {
+        pub fn and_path<P: Into<String>>(self, path: P) -> second::Route {
             second::Route {
                 method: self.method,
-                path,
+                path: path.into(),
             }
         }
     }
@@ -27,7 +27,7 @@ pub mod second {
 
     pub struct Route {
         pub(super) method: &'static Method,
-        pub(super) path: &'static str,
+        pub(super) path: String,
     }
 
     impl Route {
@@ -63,7 +63,7 @@ pub mod third {
         HFut: Future<Output = Rs> + Send + 'static,
     {
         pub(in super::super) method: &'static Method,
-        pub(in super::super) path: &'static str,
+        pub(in super::super) path: String,
         pub(in super::super) handler: HFn,
         pub(super) _p_rq: PhantomData<Rq>,
         pub(super) _p_rs: PhantomData<Rq>,

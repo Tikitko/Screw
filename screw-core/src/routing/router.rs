@@ -3,6 +3,7 @@ pub mod first {
     use screw_components::dyn_fn::{AsDynFn, DFn};
     use std::collections::HashMap;
     use std::future::Future;
+    use std::sync::Arc;
 
     pub struct Router<ORq, ORs>
     where
@@ -30,11 +31,13 @@ pub mod first {
         pub fn and_routes<F>(self, handler: F) -> router::second::Router<ORq, ORs>
         where
             F: FnOnce(
-                routes::Routes<request::DirectedRequest<ORq>, ORs>,
-            ) -> routes::Routes<request::DirectedRequest<ORq>, ORs>,
+                routes::Routes<request::DirectedRequest<ORq>, ORs, (), ()>,
+            ) -> routes::Routes<request::DirectedRequest<ORq>, ORs, (), ()>,
         {
             let routes::Routes { handlers, .. } = handler(routes::Routes {
                 scope_path: "".to_owned(),
+                request_converter: Arc::new(()),
+                response_converter: Arc::new(()),
                 handlers: HashMap::default(),
             });
             router::second::Router {

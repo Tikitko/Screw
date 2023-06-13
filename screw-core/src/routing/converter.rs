@@ -34,39 +34,32 @@ where
     }
 }
 
-pub struct MiddlewareConverter<C, HFn> {
-    pub converter: C,
+pub struct MiddlewareConverter<HFn> {
     pub handler: HFn,
 }
 
 #[async_trait]
-impl<Rq, C, HFn, HFut> RequestConverter<Rq> for MiddlewareConverter<C, HFn>
+impl<Rq, HFn, HFut> RequestConverter<Rq> for MiddlewareConverter<HFn>
 where
     Rq: Send + 'static,
-    C: RequestConverter<Rq> + Send + Sync + 'static,
-    C::Request: Send + 'static,
-    HFn: Fn(C::Request) -> HFut + Send + Sync + 'static,
-    HFut: Future<Output = C::Request> + Send + 'static,
+    HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
+    HFut: Future<Output = Rq> + Send + 'static,
 {
-    type Request = C::Request;
+    type Request = Rq;
     async fn convert_request(&self, request: Self::Request) -> Rq {
-        self.converter
-            .convert_request((self.handler)(request).await)
-            .await
+        (self.handler)(request).await
     }
 }
 
 #[async_trait]
-impl<Rs, C, HFn, HFut> ResponseConverter<Rs> for MiddlewareConverter<C, HFn>
+impl<Rs, HFn, HFut> ResponseConverter<Rs> for MiddlewareConverter<HFn>
 where
     Rs: Send + 'static,
-    C: ResponseConverter<Rs> + Send + Sync + 'static,
-    C::Response: Send + 'static,
-    HFn: Fn(C::Response) -> HFut + Send + Sync + 'static,
-    HFut: Future<Output = C::Response> + Send + 'static,
+    HFn: Fn(Rs) -> HFut + Send + Sync + 'static,
+    HFut: Future<Output = Rs> + Send + 'static,
 {
-    type Response = C::Response;
+    type Response = Rs;
     async fn convert_response(&self, response: Rs) -> Self::Response {
-        (self.handler)(self.converter.convert_response(response).await).await
+        (self.handler)(response).await
     }
 }
