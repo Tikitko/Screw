@@ -1,6 +1,6 @@
 use hyper::http::request::Parts;
 use screw_components::dyn_result::DResult;
-use screw_core::routing::Path;
+use screw_core::routing::actix::Path;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::marker::PhantomData;

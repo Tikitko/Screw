@@ -4,7 +4,7 @@ use hyper::{body, header, Body, StatusCode};
 use response::ApiResponseContentBase;
 use screw_components::dyn_result::DResult;
 use screw_core::routing::converter::{RequestConverter, ResponseConverter};
-use screw_core::routing::request::DirectedRequest;
+use screw_core::routing::router::RoutedRequest;
 use screw_core::{Request, Response};
 use serde::Deserialize;
 
@@ -18,7 +18,7 @@ where
     RqContent: request::ApiRequestContent<Extensions> + Send + 'static,
     Extensions: Sync + Send + 'static,
 {
-    type Request = DirectedRequest<Request<Extensions>>;
+    type Request = RoutedRequest<Request<Extensions>>;
     async fn convert_request(
         &self,
         request: Self::Request,

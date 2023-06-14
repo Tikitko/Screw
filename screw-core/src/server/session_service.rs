@@ -29,7 +29,6 @@ where
 
     fn call(&mut self, request: Request<Body>) -> Self::Future {
         let response_future = self.responder.response(request);
-
         Box::pin(async move {
             let response = response_future.await;
             Ok(response)

@@ -2,7 +2,7 @@ use super::*;
 use hyper::http::request::Parts;
 use hyper::upgrade::{OnUpgrade, Upgraded};
 use screw_components::dyn_fn::DFn;
-use screw_core::routing::Path;
+use screw_core::routing::actix::Path;
 use std::collections::HashMap;
 use std::future::Future;
 use std::marker::PhantomData;

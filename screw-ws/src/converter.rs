@@ -3,7 +3,7 @@ use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
 use screw_core::routing::converter::{RequestConverter, ResponseConverter};
-use screw_core::routing::request::DirectedRequest;
+use screw_core::routing::router::RoutedRequest;
 use screw_core::{Request, Response};
 use std::sync::Arc;
 use tokio::task;
@@ -114,7 +114,7 @@ where
     Stream: Send + Sync + 'static,
     Extensions: Sync + Send + 'static,
 {
-    type Request = DirectedRequest<Request<Extensions>>;
+    type Request = RoutedRequest<Request<Extensions>>;
     async fn convert_request(
         &self,
         mut request: Self::Request,

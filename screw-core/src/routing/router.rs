@@ -1,7 +1,16 @@
+use super::*;
+use actix::{Path, Router as InnerRouter};
+use std::collections::HashMap;
+
+pub struct RoutedRequest<ORq> {
+    pub path: Path<String>,
+    pub query: HashMap<String, String>,
+    pub origin: ORq,
+}
+
 pub mod first {
-    use super::super::*;
+    use super::*;
     use screw_components::dyn_fn::{AsDynFn, DFn};
-    use std::collections::HashMap;
     use std::future::Future;
     use std::sync::Arc;
 
@@ -10,7 +19,7 @@ pub mod first {
         ORq: Send + 'static,
         ORs: Send + 'static,
     {
-        fallback_handler: DFn<request::DirectedRequest<ORq>, ORs>,
+        fallback_handler: DFn<RoutedRequest<ORq>, ORs>,
     }
 
     impl<ORq, ORs> Router<ORq, ORs>
@@ -20,7 +29,7 @@ pub mod first {
     {
         pub fn with_fallback_handler<HFn, HFut>(fallback_handler: HFn) -> Self
         where
-            HFn: Fn(request::DirectedRequest<ORq>) -> HFut + Send + Sync + 'static,
+            HFn: Fn(RoutedRequest<ORq>) -> HFut + Send + Sync + 'static,
             HFut: Future<Output = ORs> + Send + 'static,
         {
             Router {
@@ -31,8 +40,8 @@ pub mod first {
         pub fn and_routes<F>(self, handler: F) -> router::second::Router<ORq, ORs>
         where
             F: FnOnce(
-                routes::Routes<request::DirectedRequest<ORq>, ORs, (), ()>,
-            ) -> routes::Routes<request::DirectedRequest<ORq>, ORs, (), ()>,
+                routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
+            ) -> routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
         {
             let routes::Routes { handlers, .. } = handler(routes::Routes {
                 scope_path: "".to_owned(),
@@ -42,7 +51,7 @@ pub mod first {
             });
             router::second::Router {
                 inner: {
-                    let mut inner_router = actix_router::Router::build();
+                    let mut inner_router = InnerRouter::build();
                     for (path, handler) in handlers {
                         inner_router.path(path, handler);
                     }
@@ -55,7 +64,7 @@ pub mod first {
 }
 
 pub mod second {
-    use super::super::*;
+    use super::*;
     use hyper::{Body, Method, Request};
     use screw_components::dyn_fn::DFn;
     use std::collections::HashMap;
@@ -65,9 +74,8 @@ pub mod second {
         ORq: Send + 'static,
         ORs: Send + 'static,
     {
-        pub(super) inner:
-            actix_router::Router<HashMap<&'static Method, DFn<request::DirectedRequest<ORq>, ORs>>>,
-        pub(super) fallback_handler: DFn<request::DirectedRequest<ORq>, ORs>,
+        pub(super) inner: InnerRouter<HashMap<&'static Method, DFn<RoutedRequest<ORq>, ORs>>>,
+        pub(super) fallback_handler: DFn<RoutedRequest<ORq>, ORs>,
     }
 
     impl<ORq, ORs> Router<ORq, ORs>
@@ -79,7 +87,8 @@ pub mod second {
             let http_request_ref = request.as_ref();
 
             let method = http_request_ref.method();
-            let mut path = actix_router::Path::new(http_request_ref.uri().path().to_owned());
+            let path = http_request_ref.uri().path().to_owned();
+            let mut path = Path::new(path);
             let query = http_request_ref
                 .uri()
                 .query()
@@ -97,7 +106,7 @@ pub mod second {
                 .flatten()
                 .unwrap_or(&self.fallback_handler);
 
-            let request = request::DirectedRequest {
+            let request = RoutedRequest {
                 path,
                 query,
                 origin: request,

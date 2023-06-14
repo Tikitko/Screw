@@ -1,7 +1,9 @@
 use super::*;
 use hyper::Method;
 use screw_components::dyn_fn::DFn;
-use std::{collections::HashMap, future::Future, sync::Arc};
+use std::collections::HashMap;
+use std::future::Future;
+use std::sync::Arc;
 
 pub struct Converters<RqC, RsC> {
     pub request_converter: RqC,
@@ -74,13 +76,13 @@ where
             let mut handlers = self.handlers;
             for (path, converted_handlers) in converted_handlers {
                 for (method, converted_handler) in converted_handlers {
-                    Self::convert_route_to_handlers(
+                    Self::add_route_to_handlers(
                         route::first::Route::with_method(method)
                             .and_path(path.clone())
                             .and_handler(converted_handler),
+                        &mut handlers,
                         self.request_converter.clone(),
                         self.response_converter.clone(),
-                        &mut handlers,
                     )
                 }
             }
@@ -127,13 +129,13 @@ where
             mut handlers,
         } = self;
         {
-            Self::convert_route_to_handlers(
+            Self::add_route_to_handlers(
                 route::first::Route::with_method(route.method)
                     .and_path(scope_path.clone() + route.path.as_str())
                     .and_handler(route.handler),
+                &mut handlers,
                 request_converter.clone(),
                 response_converter.clone(),
-                &mut handlers,
             )
         }
         Self {
@@ -144,11 +146,11 @@ where
         }
     }
 
-    fn convert_route_to_handlers<Rq, Rs, HFn, HFut>(
+    fn add_route_to_handlers<Rq, Rs, HFn, HFut>(
         route: route::third::Route<Rq, Rs, HFn, HFut>,
+        handlers: &mut HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
         request_converter: Arc<RqC>,
         response_converter: Arc<RsC>,
-        handlers: &mut HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
     ) where
         RqC: converter::RequestConverter<Rq, Request = ORq>,
         RsC: converter::ResponseConverter<Rs, Response = ORs>,

@@ -43,7 +43,6 @@ where
         let remote_addr = addr_stream.remote_addr();
         let responder = self.responder_factory.make_responder(remote_addr);
         let session_service = SessionService { responder };
-
         ready(Ok(session_service))
     }
 }
