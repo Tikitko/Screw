@@ -16,7 +16,8 @@ pub mod first {
     where
         Extensions: Sync + Send + 'static,
     {
-        router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
+        router:
+            Arc<routing::router::second::Router<request::Request<Extensions>, response::Response>>,
     }
 
     impl<Extensions> ResponderFactory<Extensions>
@@ -24,7 +25,10 @@ pub mod first {
         Extensions: Sync + Send + 'static,
     {
         pub fn with_router(
-            router: routing::router::second::Router<Request<Extensions>, Response>,
+            router: routing::router::second::Router<
+                request::Request<Extensions>,
+                response::Response,
+            >,
         ) -> Self {
             Self {
                 router: Arc::new(router),
@@ -52,7 +56,8 @@ pub mod second {
     where
         Extensions: Sync + Send + 'static,
     {
-        pub(super) router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
+        pub(super) router:
+            Arc<routing::router::second::Router<request::Request<Extensions>, response::Response>>,
         pub(super) extensions: Arc<Extensions>,
     }
 
@@ -76,7 +81,7 @@ where
     Extensions: Sync + Send + 'static,
 {
     remote_addr: SocketAddr,
-    router: Arc<routing::router::second::Router<Request<Extensions>, Response>>,
+    router: Arc<routing::router::second::Router<request::Request<Extensions>, response::Response>>,
     extensions: Arc<Extensions>,
 }
 
@@ -91,7 +96,7 @@ where
         let router = self.router.clone();
         let extensions = self.extensions.clone();
         Box::pin(async move {
-            let request = Request {
+            let request = request::Request {
                 remote_addr,
                 extensions,
                 http: http_request,
