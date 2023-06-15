@@ -1,7 +1,6 @@
 use super::*;
 use hyper::Method;
 use screw_components::dyn_fn::DFn;
-use std::collections::HashMap;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -17,10 +16,28 @@ where
     RqC: Send + Sync + 'static,
     RsC: Send + Sync + 'static,
 {
-    pub(super) scope_path: String,
-    pub(super) request_converter: Arc<RqC>,
-    pub(super) response_converter: Arc<RsC>,
-    pub(super) handlers: HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
+    scope_path: String,
+    request_converter: Arc<RqC>,
+    response_converter: Arc<RsC>,
+    handlers: Vec<(&'static Method, String, DFn<ORq, ORs>)>,
+}
+
+impl<ORq, ORs> Routes<ORq, ORs, (), ()>
+where
+    ORq: Send + 'static,
+    ORs: Send + 'static,
+{
+    pub(super) fn new() -> Self {
+        Self {
+            scope_path: "".to_owned(),
+            request_converter: Arc::new(()),
+            response_converter: Arc::new(()),
+            handlers: Vec::new(),
+        }
+    }
+    pub(super) fn handlers(self) -> Vec<(&'static Method, String, DFn<ORq, ORs>)> {
+        self.handlers
+    }
 }
 
 impl<ORq, ORs, RqC, RsC> Routes<ORq, ORs, RqC, RsC>
@@ -70,21 +87,19 @@ where
             scope_path: self.scope_path.clone() + scope_path,
             request_converter: Arc::new(converters.request_converter),
             response_converter: Arc::new(converters.response_converter),
-            handlers: HashMap::new(),
+            handlers: Vec::new(),
         });
         let handlers = {
             let mut handlers = self.handlers;
-            for (path, converted_handlers) in converted_handlers {
-                for (method, converted_handler) in converted_handlers {
-                    Self::add_route_to_handlers(
-                        route::first::Route::with_method(method)
-                            .and_path(path.clone())
-                            .and_handler(converted_handler),
-                        &mut handlers,
-                        self.request_converter.clone(),
-                        self.response_converter.clone(),
-                    )
-                }
+            for (method, path, converted_handler) in converted_handlers {
+                Self::add_route_to_handlers(
+                    route::first::Route::with_method(method)
+                        .and_path(path.clone())
+                        .and_handler(converted_handler),
+                    &mut handlers,
+                    self.request_converter.clone(),
+                    self.response_converter.clone(),
+                )
             }
             handlers
         };
@@ -148,7 +163,7 @@ where
 
     fn add_route_to_handlers<Rq, Rs, HFn, HFut>(
         route: route::third::Route<Rq, Rs, HFn, HFut>,
-        handlers: &mut HashMap<String, HashMap<&'static Method, DFn<ORq, ORs>>>,
+        handlers: &mut Vec<(&'static Method, String, DFn<ORq, ORs>)>,
         request_converter: Arc<RqC>,
         response_converter: Arc<RsC>,
     ) where
@@ -159,12 +174,12 @@ where
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = Rs> + Send + 'static,
     {
-        let mut method_handlers = handlers.remove(&route.path).unwrap_or_default();
         let handler = Arc::new(route.handler);
         let request_converter = request_converter.clone();
         let response_converter = response_converter.clone();
-        method_handlers.insert(
+        handlers.push((
             route.method,
+            route.path,
             Box::new(move |request| {
                 let handler = handler.clone();
                 let request_converter = request_converter.clone();
@@ -177,7 +192,6 @@ where
                     response
                 })
             }),
-        );
-        handlers.insert(route.path, method_handlers);
+        ));
     }
 }

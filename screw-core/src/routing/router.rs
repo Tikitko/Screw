@@ -1,5 +1,5 @@
 use super::*;
-use actix::{Path, Router as InnerRouter};
+use actix::{Path, ResourceDef, Router as InnerRouter};
 use std::collections::HashMap;
 
 pub struct RoutedRequest<ORq> {
@@ -12,7 +12,6 @@ pub mod first {
     use super::*;
     use screw_components::dyn_fn::{AsDynFn, DFn};
     use std::future::Future;
-    use std::sync::Arc;
 
     pub struct Router<ORq, ORs>
     where
@@ -43,17 +42,12 @@ pub mod first {
                 routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
             ) -> routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
         {
-            let routes::Routes { handlers, .. } = handler(routes::Routes {
-                scope_path: "".to_owned(),
-                request_converter: Arc::new(()),
-                response_converter: Arc::new(()),
-                handlers: HashMap::default(),
-            });
+            let routes = handler(routes::Routes::new());
             router::second::Router {
                 inner: {
                     let mut inner_router = InnerRouter::build();
-                    for (path, handler) in handlers {
-                        inner_router.path(path, handler);
+                    for (method, path, handler) in routes.handlers() {
+                        inner_router.push(ResourceDef::new(path), handler, method);
                     }
                     inner_router.finish()
                 },
@@ -74,7 +68,7 @@ pub mod second {
         ORq: Send + 'static,
         ORs: Send + 'static,
     {
-        pub(super) inner: InnerRouter<HashMap<&'static Method, DFn<RoutedRequest<ORq>, ORs>>>,
+        pub(super) inner: InnerRouter<DFn<RoutedRequest<ORq>, ORs>, &'static Method>,
         pub(super) fallback_handler: DFn<RoutedRequest<ORq>, ORs>,
     }
 
@@ -101,9 +95,8 @@ pub mod second {
 
             let handler = self
                 .inner
-                .recognize(&mut path)
-                .map(|(h, _)| h.get(method))
-                .flatten()
+                .recognize_fn(&mut path, |_, m| m == method)
+                .map(|r| r.0)
                 .unwrap_or(&self.fallback_handler);
 
             let request = RoutedRequest {
