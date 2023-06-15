@@ -46,8 +46,8 @@ pub mod first {
             router::second::Router {
                 inner: {
                     let mut inner_router = InnerRouter::build();
-                    for (method, path, handler) in routes.handlers() {
-                        inner_router.push(ResourceDef::new(path), handler, method);
+                    for (methods, path, handler) in routes.handlers() {
+                        inner_router.push(ResourceDef::new(path), handler, methods);
                     }
                     inner_router.finish()
                 },
@@ -68,7 +68,7 @@ pub mod second {
         ORq: Send + 'static,
         ORs: Send + 'static,
     {
-        pub(super) inner: InnerRouter<DFn<RoutedRequest<ORq>, ORs>, &'static Method>,
+        pub(super) inner: InnerRouter<DFn<RoutedRequest<ORq>, ORs>, Vec<&'static Method>>,
         pub(super) fallback_handler: DFn<RoutedRequest<ORq>, ORs>,
     }
 
@@ -95,7 +95,13 @@ pub mod second {
 
             let handler = self
                 .inner
-                .recognize_fn(&mut path, |_, m| m == method)
+                .recognize_fn(&mut path, |_, m| {
+                    if !m.is_empty() {
+                        m.contains(&method)
+                    } else {
+                        true
+                    }
+                })
                 .map(|r| r.0)
                 .unwrap_or(&self.fallback_handler);
 

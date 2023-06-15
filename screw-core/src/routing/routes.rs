@@ -19,7 +19,7 @@ where
     scope_path: String,
     request_converter: Arc<RqC>,
     response_converter: Arc<RsC>,
-    handlers: Vec<(&'static Method, String, DFn<ORq, ORs>)>,
+    handlers: Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)>,
 }
 
 impl<ORq, ORs> Routes<ORq, ORs, (), ()>
@@ -35,7 +35,7 @@ where
             handlers: Vec::new(),
         }
     }
-    pub(super) fn handlers(self) -> Vec<(&'static Method, String, DFn<ORq, ORs>)> {
+    pub(super) fn handlers(self) -> Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)> {
         self.handlers
     }
 }
@@ -91,10 +91,10 @@ where
         });
         let handlers = {
             let mut handlers = self.handlers;
-            for (method, path, converted_handler) in converted_handlers {
+            for (methods, path, converted_handler) in converted_handlers {
                 Self::add_route_to_handlers(
-                    route::first::Route::with_method(method)
-                        .and_path(path.clone())
+                    route::first::Route::with_methods(methods)
+                        .and_path(path)
                         .and_handler(converted_handler),
                     &mut handlers,
                     self.request_converter.clone(),
@@ -145,7 +145,7 @@ where
         } = self;
         {
             Self::add_route_to_handlers(
-                route::first::Route::with_method(route.method)
+                route::first::Route::with_methods(route.methods)
                     .and_path(scope_path.clone() + route.path.as_str())
                     .and_handler(route.handler),
                 &mut handlers,
@@ -163,7 +163,7 @@ where
 
     fn add_route_to_handlers<Rq, Rs, HFn, HFut>(
         route: route::third::Route<Rq, Rs, HFn, HFut>,
-        handlers: &mut Vec<(&'static Method, String, DFn<ORq, ORs>)>,
+        handlers: &mut Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)>,
         request_converter: Arc<RqC>,
         response_converter: Arc<RsC>,
     ) where
@@ -178,7 +178,7 @@ where
         let request_converter = request_converter.clone();
         let response_converter = response_converter.clone();
         handlers.push((
-            route.method,
+            route.methods,
             route.path,
             Box::new(move |request| {
                 let handler = handler.clone();

@@ -3,17 +3,21 @@ pub mod first {
     use hyper::Method;
 
     pub struct Route {
-        method: &'static Method,
+        methods: Vec<&'static Method>,
     }
 
     impl Route {
-        pub fn with_method(method: &'static Method) -> Self {
-            Self { method }
+        pub fn with_method<M: Into<&'static Method>>(method: M) -> Self {
+            Self { methods: vec![method.into()] }
+        }
+
+        pub fn with_methods<M: Into<Vec<&'static Method>>>(methods: M) -> Self {
+            Self { methods: methods.into() }
         }
 
         pub fn and_path<P: Into<String>>(self, path: P) -> second::Route {
             second::Route {
-                method: self.method,
+                methods: self.methods,
                 path: path.into(),
             }
         }
@@ -26,7 +30,7 @@ pub mod second {
     use std::future::Future;
 
     pub struct Route {
-        pub(super) method: &'static Method,
+        pub(super) methods: Vec<&'static Method>,
         pub(super) path: String,
     }
 
@@ -39,7 +43,7 @@ pub mod second {
             HFut: Future<Output = Rs> + Send + 'static,
         {
             third::Route {
-                method: self.method,
+                methods: self.methods,
                 path: self.path,
                 handler,
                 _p_rq: Default::default(),
@@ -62,7 +66,7 @@ pub mod third {
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = Rs> + Send + 'static,
     {
-        pub(in super::super) method: &'static Method,
+        pub(in super::super) methods: Vec<&'static Method>,
         pub(in super::super) path: String,
         pub(in super::super) handler: HFn,
         pub(super) _p_rq: PhantomData<Rq>,
