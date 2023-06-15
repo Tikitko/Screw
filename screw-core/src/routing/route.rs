@@ -8,11 +8,19 @@ pub mod first {
 
     impl Route {
         pub fn with_method<M: Into<&'static Method>>(method: M) -> Self {
-            Self { methods: vec![method.into()] }
+            Self {
+                methods: vec![method.into()],
+            }
         }
 
         pub fn with_methods<M: Into<Vec<&'static Method>>>(methods: M) -> Self {
-            Self { methods: methods.into() }
+            Self {
+                methods: methods.into(),
+            }
+        }
+
+        pub fn with_any_methods() -> Self {
+            Self { methods: vec![] }
         }
 
         pub fn and_path<P: Into<String>>(self, path: P) -> second::Route {
