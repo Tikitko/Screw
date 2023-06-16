@@ -34,12 +34,8 @@ where
     }
 }
 
-pub struct MiddlewareConverter<HFn> {
-    pub handler: HFn,
-}
-
 #[async_trait]
-impl<Rq, HFn, HFut> RequestConverter<Rq> for MiddlewareConverter<HFn>
+impl<Rq, HFn, HFut> RequestConverter<Rq> for HFn
 where
     Rq: Send + 'static,
     HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
@@ -47,12 +43,12 @@ where
 {
     type Request = Rq;
     async fn convert_request(&self, request: Self::Request) -> Rq {
-        (self.handler)(request).await
+        self(request).await
     }
 }
 
 #[async_trait]
-impl<Rs, HFn, HFut> ResponseConverter<Rs> for MiddlewareConverter<HFn>
+impl<Rs, HFn, HFut> ResponseConverter<Rs> for HFn
 where
     Rs: Send + 'static,
     HFn: Fn(Rs) -> HFut + Send + Sync + 'static,
@@ -60,6 +56,6 @@ where
 {
     type Response = Rs;
     async fn convert_response(&self, response: Rs) -> Self::Response {
-        (self.handler)(response).await
+        self(response).await
     }
 }
