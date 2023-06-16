@@ -55,7 +55,6 @@ pub mod second {
                 path: self.path,
                 handler,
                 _p_rq: Default::default(),
-                _p_rs: Default::default(),
                 _p_h_fut: Default::default(),
             }
         }
@@ -78,7 +77,6 @@ pub mod third {
         pub(in super::super) path: String,
         pub(in super::super) handler: HFn,
         pub(super) _p_rq: PhantomData<Rq>,
-        pub(super) _p_rs: PhantomData<Rq>,
         pub(super) _p_h_fut: PhantomData<HFut>,
     }
 }
