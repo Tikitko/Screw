@@ -98,6 +98,19 @@ where
     }
 }
 
+impl<Success, Failure> From<Result<Success, Failure>> for ApiResponseContent<Success, Failure>
+where
+    Success: ApiResponseContentSuccess,
+    Failure: ApiResponseContentFailure,
+{
+    fn from(value: Result<Success, Failure>) -> Self {
+        match value {
+            Ok(ok) => Self::Success(ok),
+            Err(err) => Self::Failure(err),
+        }
+    }
+}
+
 pub struct ApiResponse<Success, Failure>
 where
     Success: ApiResponseContentSuccess,
@@ -121,5 +134,15 @@ where
         Self {
             content: ApiResponseContent::Failure(content_failure),
         }
+    }
+}
+
+impl<Success, Failure> From<Result<Success, Failure>> for ApiResponse<Success, Failure>
+where
+    Success: ApiResponseContentSuccess,
+    Failure: ApiResponseContentFailure,
+{
+    fn from(value: Result<Success, Failure>) -> Self {
+        Self { content: ApiResponseContent::from(value) }
     }
 }
