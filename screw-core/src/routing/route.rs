@@ -19,7 +19,7 @@ pub mod first {
             }
         }
 
-        pub fn with_any_methods() -> Self {
+        pub fn with_any_method() -> Self {
             Self { methods: vec![] }
         }
 
