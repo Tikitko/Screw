@@ -143,6 +143,8 @@ where
     Failure: ApiResponseContentFailure,
 {
     fn from(value: Result<Success, Failure>) -> Self {
-        Self { content: ApiResponseContent::from(value) }
+        Self {
+            content: ApiResponseContent::from(value),
+        }
     }
 }

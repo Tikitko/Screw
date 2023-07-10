@@ -61,7 +61,6 @@ pub mod second {
     use super::*;
     use hyper::{Body, Method, Request};
     use screw_components::dyn_fn::DFn;
-    use std::collections::HashMap;
 
     pub struct Router<ORq, ORs>
     where
@@ -81,8 +80,11 @@ pub mod second {
             let http_request_ref = request.as_ref();
 
             let method = http_request_ref.method();
-            let path = http_request_ref.uri().path().to_owned();
-            let mut path = Path::new(path);
+            let mut path = Path::new(
+                urlencoding::decode(http_request_ref.uri().path())
+                    .unwrap_or_default()
+                    .into_owned(),
+            );
             let query = http_request_ref
                 .uri()
                 .query()
@@ -91,7 +93,7 @@ pub mod second {
                         .into_owned()
                         .collect()
                 })
-                .unwrap_or_else(HashMap::new);
+                .unwrap_or_default();
 
             let handler = self
                 .inner
