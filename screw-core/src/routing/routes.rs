@@ -4,25 +4,18 @@ use screw_components::dyn_fn::DFn;
 use std::future::Future;
 use std::sync::Arc;
 
-pub struct Converters<RqC, RsC> {
-    pub request_converter: RqC,
-    pub response_converter: RsC,
-}
-
-pub struct Routes<ORq, ORs, RqC, RsC>
+pub struct Routes<ORq, ORs, M>
 where
     ORq: Send + 'static,
     ORs: Send + 'static,
-    RqC: Send + Sync + 'static,
-    RsC: Send + Sync + 'static,
+    M: Send + Sync + 'static,
 {
     scope_path: String,
-    request_converter: Arc<RqC>,
-    response_converter: Arc<RsC>,
+    middleware: Arc<M>,
     handlers: Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)>,
 }
 
-impl<ORq, ORs> Routes<ORq, ORs, (), ()>
+impl<ORq, ORs> Routes<ORq, ORs, ()>
 where
     ORq: Send + 'static,
     ORs: Send + 'static,
@@ -30,8 +23,7 @@ where
     pub(super) fn new() -> Self {
         Self {
             scope_path: "".to_owned(),
-            request_converter: Arc::new(()),
-            response_converter: Arc::new(()),
+            middleware: Arc::new(()),
             handlers: Vec::new(),
         }
     }
@@ -40,53 +32,47 @@ where
     }
 }
 
-impl<ORq, ORs, RqC, RsC> Routes<ORq, ORs, RqC, RsC>
+impl<ORq, ORs, M> Routes<ORq, ORs, M>
 where
     ORq: Send + 'static,
     ORs: Send + 'static,
-    RqC: Send + Sync + 'static,
-    RsC: Send + Sync + 'static,
+    M: Send + Sync + 'static,
 {
     pub fn scoped<F>(self, scope_path: &'static str, handler: F) -> Self
     where
-        F: FnOnce(Routes<ORq, ORs, RqC, RsC>) -> Routes<ORq, ORs, RqC, RsC>,
+        F: FnOnce(Routes<ORq, ORs, M>) -> Routes<ORq, ORs, M>,
     {
         let Self { handlers, .. } = handler(Self {
             scope_path: self.scope_path.clone() + scope_path,
-            request_converter: self.request_converter.clone(),
-            response_converter: self.response_converter.clone(),
+            middleware: self.middleware.clone(),
             handlers: self.handlers,
         });
         Self {
             scope_path: self.scope_path,
-            request_converter: self.request_converter,
-            response_converter: self.response_converter,
+            middleware: self.middleware,
             handlers,
         }
     }
 
-    pub fn scoped_convertable<Rq, Rs, NRqC, NRsC, F>(
+    pub fn scoped_convertable<Rq, Rs, NM, F>(
         self,
         scope_path: &'static str,
-        converters: Converters<NRqC, NRsC>,
+        middleware: NM,
         handler: F,
     ) -> Self
     where
-        RqC: converter::RequestConverter<Rq, Request = ORq>,
-        RsC: converter::ResponseConverter<Rs, Response = ORs>,
+        M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
-        NRqC: Send + Sync + 'static,
-        NRsC: Send + Sync + 'static,
-        F: FnOnce(Routes<Rq, Rs, NRqC, NRsC>) -> Routes<Rq, Rs, NRqC, NRsC>,
+        NM: Send + Sync + 'static,
+        F: FnOnce(Routes<Rq, Rs, NM>) -> Routes<Rq, Rs, NM>,
     {
         let Routes {
             handlers: converted_handlers,
             ..
         } = handler(Routes {
             scope_path: self.scope_path.clone() + scope_path,
-            request_converter: Arc::new(converters.request_converter),
-            response_converter: Arc::new(converters.response_converter),
+            middleware: Arc::new(middleware),
             handlers: Vec::new(),
         });
         let handlers = {
@@ -97,41 +83,32 @@ where
                         .and_path(path)
                         .and_handler(converted_handler),
                     &mut handlers,
-                    self.request_converter.clone(),
-                    self.response_converter.clone(),
+                    self.middleware.clone(),
                 )
             }
             handlers
         };
         Self {
             scope_path: self.scope_path,
-            request_converter: self.request_converter,
-            response_converter: self.response_converter,
+            middleware: self.middleware,
             handlers,
         }
     }
 
-    pub fn convertable<Rq, Rs, NRqC, NRsC, F>(
-        self,
-        converters: Converters<NRqC, NRsC>,
-        handler: F,
-    ) -> Self
+    pub fn convertable<Rq, Rs, NM, F>(self, middleware: NM, handler: F) -> Self
     where
-        RqC: converter::RequestConverter<Rq, Request = ORq>,
-        RsC: converter::ResponseConverter<Rs, Response = ORs>,
+        M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
-        NRqC: Send + Sync + 'static,
-        NRsC: Send + Sync + 'static,
-        F: FnOnce(Routes<Rq, Rs, NRqC, NRsC>) -> Routes<Rq, Rs, NRqC, NRsC>,
+        NM: Send + Sync + 'static,
+        F: FnOnce(Routes<Rq, Rs, NM>) -> Routes<Rq, Rs, NM>,
     {
-        self.scoped_convertable("", converters, handler)
+        self.scoped_convertable("", middleware, handler)
     }
 
     pub fn route<Rq, Rs, HFn, HFut>(self, route: route::third::Route<Rq, Rs, HFn, HFut>) -> Self
     where
-        RqC: converter::RequestConverter<Rq, Request = ORq>,
-        RsC: converter::ResponseConverter<Rs, Response = ORs>,
+        M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
@@ -139,8 +116,7 @@ where
     {
         let Self {
             scope_path,
-            request_converter,
-            response_converter,
+            middleware,
             mut handlers,
         } = self;
         {
@@ -149,14 +125,12 @@ where
                     .and_path(scope_path.clone() + route.path.as_str())
                     .and_handler(route.handler),
                 &mut handlers,
-                request_converter.clone(),
-                response_converter.clone(),
+                middleware.clone(),
             )
         }
         Self {
             scope_path,
-            request_converter,
-            response_converter,
+            middleware,
             handlers,
         }
     }
@@ -164,32 +138,29 @@ where
     fn add_route_to_handlers<Rq, Rs, HFn, HFut>(
         route: route::third::Route<Rq, Rs, HFn, HFut>,
         handlers: &mut Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)>,
-        request_converter: Arc<RqC>,
-        response_converter: Arc<RsC>,
+        middleware: Arc<M>,
     ) where
-        RqC: converter::RequestConverter<Rq, Request = ORq>,
-        RsC: converter::ResponseConverter<Rs, Response = ORs>,
+        M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,
         Rs: Send + 'static,
         HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
         HFut: Future<Output = Rs> + Send + 'static,
     {
         let handler = Arc::new(route.handler);
-        let request_converter = request_converter.clone();
-        let response_converter = response_converter.clone();
+        let middleware = middleware.clone();
         handlers.push((
             route.methods,
             route.path,
             Box::new(move |request| {
                 let handler = handler.clone();
-                let request_converter = request_converter.clone();
-                let response_converter = response_converter.clone();
+                let middleware = middleware.clone();
                 Box::pin(async move {
-                    let handler_request = request_converter.convert_request(request).await;
-                    let handler_future = handler(handler_request);
-                    let handler_response = handler_future.await;
-                    let response = response_converter.convert_response(handler_response).await;
-                    response
+                    middleware
+                        .respond(
+                            request,
+                            Box::new(move |i| Box::pin(async move { handler(i).await })),
+                        )
+                        .await
                 })
             }),
         ));

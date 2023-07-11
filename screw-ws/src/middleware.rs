@@ -2,9 +2,10 @@ use super::*;
 use futures_util::{FutureExt, TryFutureExt};
 use hyper::header::HeaderValue;
 use hyper::{upgrade, Body, Method, StatusCode, Version};
+use screw_components::dyn_fn::DFnOnce;
 use screw_core::request::Request;
 use screw_core::response::Response;
-use screw_core::routing::converter::{RequestConverter, ResponseConverter};
+use screw_core::routing::middleware::Middleware;
 use screw_core::routing::router::RoutedRequest;
 use std::sync::Arc;
 use tokio::task;
@@ -49,10 +50,6 @@ fn get_web_socket_key_header(request: &hyper::Request<Body>) -> Option<&HeaderVa
     request.headers().get("Sec-WebSocket-Key")
 }
 
-pub fn is_upgrade_request(request: &hyper::Request<hyper::Body>) -> bool {
-    is_connection_header_upgrade(request) && is_upgrade_header_web_socket(request)
-}
-
 fn try_upgradable(
     http_request: &mut hyper::Request<Body>,
 ) -> Result<WebSocketUpgradable, ProtocolError> {
@@ -87,28 +84,34 @@ fn try_upgradable(
     Ok(WebSocketUpgradable { on_upgrade, key })
 }
 
-pub struct WebSocketRequestConverter<StreamConverter>
+pub struct WebSocketMiddlewareConverter<StreamConverter>
 where
     StreamConverter: Sync + Send + 'static,
 {
     stream_converter: Arc<StreamConverter>,
+    config: Option<WebSocketConfig>,
 }
 
-impl<StreamConverter> WebSocketRequestConverter<StreamConverter>
+impl<StreamConverter> WebSocketMiddlewareConverter<StreamConverter>
 where
     StreamConverter: Sync + Send + 'static,
 {
     pub fn with_stream_converter(stream_converter: StreamConverter) -> Self {
         Self {
             stream_converter: Arc::new(stream_converter),
+            config: None,
         }
+    }
+    pub fn and_config(mut self, config: Option<WebSocketConfig>) -> Self {
+        self.config = config;
+        self
     }
 }
 
 #[async_trait]
 impl<StreamConverter, Content, Stream, Extensions>
-    RequestConverter<WebSocketRequest<Content, Stream, Extensions>>
-    for WebSocketRequestConverter<StreamConverter>
+    Middleware<WebSocketRequest<Content, Stream, Extensions>, WebSocketResponse>
+    for WebSocketMiddlewareConverter<StreamConverter>
 where
     StreamConverter: WebSocketStreamConverter<Stream> + Sync + Send + 'static,
     Content: WebSocketContent<Extensions> + Send + 'static,
@@ -116,58 +119,48 @@ where
     Extensions: Sync + Send + 'static,
 {
     type Request = RoutedRequest<Request<Extensions>>;
-    async fn convert_request(
-        &self,
-        mut request: Self::Request,
-    ) -> WebSocketRequest<Content, Stream, Extensions> {
-        let upgradable_result = try_upgradable(&mut request.origin.http);
-
-        let request_content = Content::create(WebSocketOriginContent {
-            path: request.path,
-            query: request.query,
-            http_parts: request.origin.http.into_parts().0,
-            remote_addr: request.origin.remote_addr,
-            extensions: request.origin.extensions,
-        });
-
-        let stream_converter = self.stream_converter.clone();
-        let request_upgrade = WebSocketUpgrade {
-            upgradable_result,
-            convert_stream_fn: Box::new(move |generic_stream| {
-                let stream_converter = stream_converter.clone();
-                Box::pin(async move {
-                    let stream = stream_converter.convert_stream(generic_stream).await;
-                    stream
-                })
-            }),
-        };
-
-        WebSocketRequest {
-            content: request_content,
-            upgrade: request_upgrade,
-            _p_e: Default::default(),
-        }
-    }
-}
-
-pub struct WebSocketResponseConverter {
-    pub config: Option<WebSocketConfig>,
-}
-
-#[async_trait]
-impl ResponseConverter<WebSocketResponse> for WebSocketResponseConverter {
     type Response = Response;
-    async fn convert_response(&self, response: WebSocketResponse) -> Self::Response {
-        let http_response = match response.upgradable_result {
+    async fn respond(
+        &self,
+        mut routed_request: RoutedRequest<Request<Extensions>>,
+        next: DFnOnce<WebSocketRequest<Content, Stream, Extensions>, WebSocketResponse>,
+    ) -> Response {
+        let http_response = match try_upgradable(&mut routed_request.origin.http) {
             Ok(upgradable) => {
-                let config = self.config;
+                let request_content = Content::create(WebSocketOriginContent {
+                    path: routed_request.path,
+                    query: routed_request.query,
+                    http_parts: routed_request.origin.http.into_parts().0,
+                    remote_addr: routed_request.origin.remote_addr,
+                    extensions: routed_request.origin.extensions,
+                });
 
+                let stream_converter = self.stream_converter.clone();
+                let request_upgrade = WebSocketUpgrade {
+                    convert_stream_fn: Box::new(move |generic_stream| {
+                        let stream_converter = stream_converter.clone();
+                        Box::pin(async move {
+                            let stream = stream_converter.convert_stream(generic_stream).await;
+                            stream
+                        })
+                    }),
+                };
+
+                let ws_request = WebSocketRequest {
+                    content: request_content,
+                    upgrade: request_upgrade,
+                    _p_e: Default::default(),
+                };
+
+                let ws_response = next(ws_request).await;
+
+                let config = self.config;
                 let future = upgradable
                     .on_upgrade
                     .and_then(move |upgraded| {
                         WebSocketStream::from_raw_socket(upgraded, Role::Server, config).map(Ok)
                     })
-                    .and_then(move |stream| (response.upgraded_fn)(stream).map(Ok));
+                    .and_then(move |stream| (ws_response.upgraded_fn)(stream).map(Ok));
 
                 task::spawn(future);
 

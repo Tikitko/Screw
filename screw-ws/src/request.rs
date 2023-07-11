@@ -8,7 +8,6 @@ use std::future::Future;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::sync::Arc;
-use tokio_tungstenite::tungstenite::error::ProtocolError;
 use tokio_tungstenite::WebSocketStream;
 
 pub struct WebSocketOriginContent<Extensions> {
@@ -36,7 +35,6 @@ pub struct WebSocketUpgrade<Stream>
 where
     Stream: Send + Sync + 'static,
 {
-    pub(super) upgradable_result: Result<WebSocketUpgradable, ProtocolError>,
     pub(super) convert_stream_fn: DFn<WebSocketStream<Upgraded>, Stream>,
 }
 
@@ -51,7 +49,6 @@ where
     {
         let convert_stream_fn = Arc::new(self.convert_stream_fn);
         WebSocketResponse {
-            upgradable_result: self.upgradable_result,
             upgraded_fn: Box::new(move |generic_stream| {
                 let convert_stream_fn = convert_stream_fn.clone();
                 Box::pin(async move {

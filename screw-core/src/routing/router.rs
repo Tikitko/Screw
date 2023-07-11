@@ -39,8 +39,8 @@ pub mod first {
         pub fn and_routes<F>(self, handler: F) -> router::second::Router<ORq, ORs>
         where
             F: FnOnce(
-                routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
-            ) -> routes::Routes<RoutedRequest<ORq>, ORs, (), ()>,
+                routes::Routes<RoutedRequest<ORq>, ORs, ()>,
+            ) -> routes::Routes<RoutedRequest<ORq>, ORs, ()>,
         {
             let routes = handler(routes::Routes::new());
             router::second::Router {
