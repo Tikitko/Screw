@@ -54,7 +54,7 @@ where
         }
     }
 
-    pub fn scoped_convertable<Rq, Rs, NM, F>(
+    pub fn scoped_middleware<Rq, Rs, NM, F>(
         self,
         scope_path: &'static str,
         middleware: NM,
@@ -68,7 +68,7 @@ where
         F: FnOnce(Routes<Rq, Rs, NM>) -> Routes<Rq, Rs, NM>,
     {
         let Routes {
-            handlers: converted_handlers,
+            handlers: middleware_handlers,
             ..
         } = handler(Routes {
             scope_path: self.scope_path.clone() + scope_path,
@@ -77,11 +77,11 @@ where
         });
         let handlers = {
             let mut handlers = self.handlers;
-            for (methods, path, converted_handler) in converted_handlers {
+            for (methods, path, middleware_handler) in middleware_handlers {
                 Self::add_route_to_handlers(
                     route::first::Route::with_methods(methods)
                         .and_path(path)
-                        .and_handler(converted_handler),
+                        .and_handler(middleware_handler),
                     &mut handlers,
                     self.middleware.clone(),
                 )
@@ -95,7 +95,7 @@ where
         }
     }
 
-    pub fn convertable<Rq, Rs, NM, F>(self, middleware: NM, handler: F) -> Self
+    pub fn middleware<Rq, Rs, NM, F>(self, middleware: NM, handler: F) -> Self
     where
         M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
         Rq: Send + 'static,
@@ -103,7 +103,7 @@ where
         NM: Send + Sync + 'static,
         F: FnOnce(Routes<Rq, Rs, NM>) -> Routes<Rq, Rs, NM>,
     {
-        self.scoped_convertable("", middleware, handler)
+        self.scoped_middleware("", middleware, handler)
     }
 
     pub fn route<Rq, Rs, HFn, HFut>(self, route: route::third::Route<Rq, Rs, HFn, HFut>) -> Self
