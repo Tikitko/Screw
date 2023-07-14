@@ -34,5 +34,14 @@ where
     Content: ApiRequestContent<Extensions>,
 {
     pub content: Content,
-    pub _p_e: PhantomData<Extensions>,
+    pub(super) _p_e: PhantomData<Extensions>,
+}
+
+impl<Content, Extensions> From<ApiRequest<Content, Extensions>> for (Content,)
+where
+    Content: ApiRequestContent<Extensions>,
+{
+    fn from(value: ApiRequest<Content, Extensions>) -> Self {
+        (value.content,)
+    }
 }

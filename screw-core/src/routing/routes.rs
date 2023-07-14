@@ -1,6 +1,6 @@
 use super::*;
 use hyper::Method;
-use screw_components::dyn_fn::DFn;
+use screw_components::dyn_fn::{DFn, DFnOnce};
 use std::future::Future;
 use std::sync::Arc;
 
@@ -106,13 +106,18 @@ where
         self.scoped_middleware("", middleware, handler)
     }
 
-    pub fn route<Rq, Rs, HFn, HFut>(self, route: route::third::Route<Rq, Rs, HFn, HFut>) -> Self
+    pub fn route<FRq, Rq, IRs, Rs, HFn, HFut>(
+        self,
+        route: route::third::Route<FRq, IRs, HFn, HFut>,
+    ) -> Self
     where
         M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
+        FRq: From<Rq> + Send + 'static,
         Rq: Send + 'static,
+        IRs: Into<Rs> + Send + 'static,
         Rs: Send + 'static,
-        HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
-        HFut: Future<Output = Rs> + Send + 'static,
+        HFn: Fn(FRq) -> HFut + Send + Sync + 'static,
+        HFut: Future<Output = IRs> + Send + 'static,
     {
         let Self {
             scope_path,
@@ -135,16 +140,18 @@ where
         }
     }
 
-    fn add_route_to_handlers<Rq, Rs, HFn, HFut>(
-        route: route::third::Route<Rq, Rs, HFn, HFut>,
+    fn add_route_to_handlers<FRq, Rq, IRs, Rs, HFn, HFut>(
+        route: route::third::Route<FRq, IRs, HFn, HFut>,
         handlers: &mut Vec<(Vec<&'static Method>, String, DFn<ORq, ORs>)>,
         middleware: Arc<M>,
     ) where
         M: middleware::Middleware<Rq, Rs, Request = ORq, Response = ORs>,
+        FRq: From<Rq> + Send + 'static,
         Rq: Send + 'static,
+        IRs: Into<Rs> + Send + 'static,
         Rs: Send + 'static,
-        HFn: Fn(Rq) -> HFut + Send + Sync + 'static,
-        HFut: Future<Output = Rs> + Send + 'static,
+        HFn: Fn(FRq) -> HFut + Send + Sync + 'static,
+        HFut: Future<Output = IRs> + Send + 'static,
     {
         let handler = Arc::new(route.handler);
         let middleware = middleware.clone();
@@ -155,12 +162,13 @@ where
                 let handler = handler.clone();
                 let middleware = middleware.clone();
                 Box::pin(async move {
-                    middleware
-                        .respond(
-                            request,
-                            Box::new(move |i| Box::pin(async move { handler(i).await })),
-                        )
-                        .await
+                    let next: DFnOnce<Rq, Rs> = Box::new(move |rq| {
+                        Box::pin(async move {
+                            let rs = handler(From::from(rq)).await.into();
+                            rs
+                        })
+                    });
+                    middleware.respond(request, next).await
                 })
             }),
         ));
